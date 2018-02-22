@@ -55,11 +55,6 @@ def static(path):
 
 @bottle.post('/start')
 def start():
-    data = bottle.request.json
-    game_id = data.get('game_id')
-    board_width = data.get('width')
-    board_height = data.get('height')
-
     head_url = '%s://%s/static/head.png' % (
         bottle.request.urlparts.scheme,
         bottle.request.urlparts.netloc
@@ -78,7 +73,7 @@ def start():
 
     return {
         'color': color,
-        'taunt': '{} ({}x{})'.format(game_id, board_width, board_height),
+        'taunt': 'SsSsSsS',
         'head_url': head_url,
         'name': 'battlesnake-python'
 }
@@ -87,8 +82,7 @@ def start():
 def get_valid_neighbours(coord, data, ignore_head_danger):
 
     # TODO: Other snake tails border squares can be danger zones too, if they eat food
-    # TODO: Don't go into a space smaller than your body
-    # TODO: Ignore rules if stuck
+    # TODO: Don't go into a space smaller than your body, using flood fill
 
     # Coords of all snakes' bodies, including heads
     snakes_coords = [point_to_coord(point) for snake in data['snakes']['data'] for point in snake['body']['data']]
@@ -138,16 +132,18 @@ def move():
     paths = []
 
     # TODO: Maybe we want to eat as much as possible until we reach a certain length?
+    # TODO: Once we're bigger than other snakes, go for their heads?
     # TODO: Maybe eat food that is opportunistically close?
     # TODO: Add path weighting, based on snake/food/wall proximity?
 
-    # If snake is hungry, we should try and eat some food
-    # Or we're "uncoiling" at the beginning of the game
-    if data['you']['health'] < 30 or data['turn'] < data['you']['length']:
+    longest = max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']])
+
+    # If snake is hungry, or we're "uncoiling", or we're not the longest snake, then try and eat some food
+    if data['you']['health'] < 30 or data['turn'] < data['you']['length'] or data['you']['length'] <= longest:
         # Find paths to all possible food
         paths = get_paths_to_points(finder, you_head, data['food']['data'])
 
-    # If we're not going after food, just follow our tail
+    # If we're not going after food, or can't find a path to any, just follow our tail
     if not paths:
         # It's dangerous to follow our actual tail coord, so let's follow one of our tail neighbour coords instead
         tail_neighbour_coords = get_coord_neighbours(you_coords[-1])
