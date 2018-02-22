@@ -136,10 +136,11 @@ def move():
     # TODO: Maybe eat food that is opportunistically close?
     # TODO: Add path weighting, based on snake/food/wall proximity?
 
+    # Who's the longest snake? Could be useful...
     longest = max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']])
 
     # If snake is hungry, or we're "uncoiling", or we're not the longest snake, then try and eat some food
-    if data['you']['health'] < 30 or data['turn'] < data['you']['length'] or data['you']['length'] <= longest:
+    if data['you']['health'] < 50 or data['turn'] < data['you']['length']:
         # Find paths to all possible food
         paths = get_paths_to_points(finder, you_head, data['food']['data'])
 
@@ -187,7 +188,7 @@ def move():
 
     return {
         'move': direction,
-        'taunt': 'DROP TABLE snakes;'
+        'taunt': direction
     }
 
 
