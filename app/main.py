@@ -84,7 +84,7 @@ def start():
 }
 
 
-def get_valid_neighbours(coord, data):
+def get_valid_neighbours(coord, data, ignore_head_danger):
 
     # TODO: Other snake tails border squares can be danger zones too, if they eat food
     # TODO: Don't go into a space smaller than your body
@@ -104,10 +104,11 @@ def get_valid_neighbours(coord, data):
 
     valid_neighbours = [
         neighbor for neighbor in coord_neighbors
-        if 0 <= neighbor[0] < data['width']  # X Coord must be within map
-        and 0 <= neighbor[1] < data['height']  # Y Coord must be within map
-        and neighbor not in snakes_coords  # Don't crash into any snake
-        and neighbor not in other_head_neighbors  # Avoid dangerous squares next to other snakes' heads
+        if 0 <= neighbor[0] < data['width']         # X Coord must be within map
+        and 0 <= neighbor[1] < data['height']       # Y Coord must be within map
+        and neighbor not in snakes_coords           # Don't crash into any snake
+        and (neighbor not in other_head_neighbors   # Avoid dangerous squares next to other snakes' heads
+             or ignore_head_danger)                 # ...unless we're ignoring the danger
     ]
 
     return valid_neighbours
@@ -117,9 +118,13 @@ def get_valid_neighbours(coord, data):
 def move():
     data = bottle.request.json
 
+    # Used to control whether we avoid coords adjacent to snake heads when pathing
+    # If things are getting desperate, we'll ignore the danger
+    ignore_head_danger = False
+
     # Used by the astar algorithm to evaluate path nodes
     def get_neighbors(node):
-        return get_valid_neighbours(node, data)
+        return get_valid_neighbours(node, data, ignore_head_danger)
 
     # Create the astar path finder
     finder = astar.pathfinder(neighbors=get_neighbors)
@@ -134,7 +139,7 @@ def move():
 
     # TODO: Maybe we want to eat as much as possible until we reach a certain length?
     # TODO: Maybe eat food that is opportunistically close?
-    # TODO: Add path weighting, based on snake and/or food proximity?
+    # TODO: Add path weighting, based on snake/food/wall proximity?
 
     # If snake is hungry, we should try and eat some food
     # Or we're "uncoiling" at the beginning of the game
@@ -154,8 +159,14 @@ def move():
         paths = get_paths_to_coords(finder, you_head, valid_neighbour_coords)
 
     # Can't get to food or our tail, things aren't looking good!
-    # Move to any valid adjacent square, if possible
+    # Move to any safe adjacent square, if possible
     if not paths:
+        head_neighbour_coords = get_coord_neighbours(you_head)
+        paths = get_paths_to_coords(finder, you_head, head_neighbour_coords)
+
+    # Try again, ignoring head danger
+    if not paths:
+        ignore_head_danger = True
         head_neighbour_coords = get_coord_neighbours(you_head)
         paths = get_paths_to_coords(finder, you_head, head_neighbour_coords)
 
