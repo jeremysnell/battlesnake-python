@@ -97,17 +97,17 @@ def get_valid_neighbours(coord, data):
     other_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
 
     # Coords of all squares adjacent to an enemy snake's head. We avoid these squares, since they are dangerous
-    other_head_neighbors = [get_coord_neighbours(head) for head in other_snake_heads]
+    other_head_neighbors = [neighbour for head in other_snake_heads for neighbour in get_coord_neighbours(head)]
 
     # Possible neighbours of input coords
     coord_neighbors = get_coord_neighbours(coord)
 
     valid_neighbours = [
-        coord for coord in coord_neighbors
-        if 0 <= coord[0] < data['width']  # X Coord must be within map
-        and 0 <= coord[1] < data['height']  # Y Coord must be within map
-        and coord not in snakes_coords  # Don't crash into any snake
-        and coord not in other_head_neighbors  # Avoid dangerous squares next to other snakes' heads
+        neighbor for neighbor in coord_neighbors
+        if 0 <= neighbor[0] < data['width']  # X Coord must be within map
+        and 0 <= neighbor[1] < data['height']  # Y Coord must be within map
+        and neighbor not in snakes_coords  # Don't crash into any snake
+        and neighbor not in other_head_neighbors  # Avoid dangerous squares next to other snakes' heads
     ]
 
     return valid_neighbours
@@ -134,6 +134,7 @@ def move():
 
     # TODO: Maybe we want to eat as much as possible until we reach a certain length?
     # TODO: Maybe eat food that is opportunistically close?
+    # TODO: Add path weighting, based on snake and/or food proximity?
 
     # If snake is hungry, we should try and eat some food
     # Or we're "uncoiling" at the beginning of the game
