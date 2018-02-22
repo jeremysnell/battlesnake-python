@@ -1,6 +1,7 @@
+import random
+
 import bottle
 import os
-import random
 from pypaths import astar
 
 
@@ -26,47 +27,53 @@ def start():
         bottle.request.urlparts.netloc
     )
 
-    # TODO: Do things with data
+    s4_colors = {
+        'indigo': '#4E54A4',
+        'green': '#44B5AD',
+        'orange': '#F37970',
+        'purple': '#AA66AA'
+    }
+
+    # snake_name = data['you']['name']
+    # color = next((hexval for color, hexval in colors.items() if color in snake_name), colors['GREEN'])
+
+    color = random.choice(s4_colors.values())
+
+    print color
 
     return {
-        'color': '#00FF00',
+        'color': color,
         'taunt': '{} ({}x{})'.format(game_id, board_width, board_height),
         'head_url': head_url
     }
 
 
-def get_valid_next_move(coord, data):
-    direction_map = {
-        'UP': (0, -1),
-        'RIGHT': (1, 0),
-        'DOWN': (0, 1),
-        'LEFT': (-1, 0)
-    }
+DIRECTION_MAP = {
+    (0, -1): 'up',
+    (0, 1): 'down',
+    (-1, 0): 'left',
+    (1, 0): 'right'
+}
+
+
+def get_valid_neighbours(coord, data):
+
+    # TODO: Other snake tails border squares should be danger zones too, if they eat food
+    # TODO: Don't go into a space smaller than your body
+    # TODO: Ignore rules if stuck
 
     snake_coords = [(point['x'], point['y']) for snake in data['snakes']['data'] for point in snake['body']['data']]
+    other_snake_heads = [(snake['body']['data'][0]['x'], snake['body']['data'][0]['y']) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
+    other_head_neighbors = [add_coords(head, dir_coord) for dir_coord in DIRECTION_MAP.keys() for head in other_snake_heads]
+    all_neighbors = [add_coords(coord, dir_coord) for dir_coord in DIRECTION_MAP.keys()]
 
-    # TODO: Add other snakes' head border squares as danger zones
-    # TODO: Snake can still die if it's too close to its tail when it eats a food
-    # TODO: Tails border squares should be danger zones too
-    # TODO: Don't go into a space smaller than your body
+    valid_neighbours = [coord for coord in all_neighbors
+                        if 0 <= coord[0] < data['width']
+                        and 0 <= coord[1] < data['height']
+                        and coord not in snake_coords
+                        and coord not in other_head_neighbors]
 
-    next_up = tuple(map(sum, zip(coord, direction_map['UP'])))
-    next_down = tuple(map(sum, zip(coord, direction_map['DOWN'])))
-    next_left = tuple(map(sum, zip(coord, direction_map['LEFT'])))
-    next_right = tuple(map(sum, zip(coord, direction_map['RIGHT'])))
-
-    valid_moves = []
-
-    if all(coord != next_up for coord in snake_coords) and next_up[1] >= 0:
-        valid_moves.append(next_up)
-    if all(coord != next_down for coord in snake_coords) and next_down[1] < data['height']:
-        valid_moves.append(next_down)
-    if all(coord != next_left for coord in snake_coords) and next_left[0] >= 0:
-        valid_moves.append(next_left)
-    if all(coord != next_right for coord in snake_coords) and next_right[0] < data['width']:
-        valid_moves.append(next_right)
-
-    return valid_moves
+    return valid_neighbours
 
 
 def add_coords(coord_one, coord_two):
@@ -93,15 +100,8 @@ def get_paths_to_points(finder, head_coords, target_points):
 def move():
     data = bottle.request.json
 
-    direction_map = {
-        (0, -1): 'up',
-        (0, 1): 'down',
-        (-1, 0): 'left',
-        (1, 0): 'right'
-    }
-
     def get_neighbors(node):
-        return get_valid_next_move(node, data)
+        return get_valid_neighbours(node, data)
 
     finder = astar.pathfinder(neighbors=get_neighbors)
 
@@ -111,12 +111,15 @@ def move():
 
     paths = []
 
+    # TODO: Maybe we want to eat as much as possible until we reach a certain length?
+    # TODO: Maybe eat food that is opportunistically close?
+
     # Snake is hungry! Or we're unpacking at the beginning of the game.
     if data['you']['health'] < 30 or data['turn'] < data['you']['length']:
         paths = get_paths_to_points(finder, head_coords, data['food']['data'])
 
     if not paths:
-        tail_neighbour_coords = [add_coords(you_coords[-1], coord) for coord in direction_map.keys()]
+        tail_neighbour_coords = [add_coords(you_coords[-1], coord) for coord in DIRECTION_MAP.keys()]
         paths = get_paths_to_coords(finder, head_coords, tail_neighbour_coords)
 
     if not paths:
@@ -128,12 +131,12 @@ def move():
 
     coord_delta = sub_coords(next_coords, head_coords)
 
-    direction = direction_map[coord_delta]
+    direction = DIRECTION_MAP[coord_delta]
 
     print direction
     return {
         'move': direction,
-        'taunt': 'battlesnake-python!'
+        'taunt': 'DROP TABLE snakes;'
     }
 
 
@@ -143,6 +146,6 @@ application = bottle.default_app()
 if __name__ == '__main__':
     bottle.run(
         application,
-        host=os.getenv('IP', '10.4.19.137'),
+        host=os.getenv('IP', '192.168.0.19'),
         port=os.getenv('PORT', '8080'),
         debug = True)
