@@ -107,7 +107,7 @@ def get_valid_neighbours(coord, data):
         if 0 <= coord[0] < data['width']  # X Coord must be within map
         and 0 <= coord[1] < data['height']  # Y Coord must be within map
         and coord not in snakes_coords  # Don't crash into any snake
-        and coord not in other_head_neighbors # Avoid dangerous squares next to other snakes' heads
+        and coord not in other_head_neighbors  # Avoid dangerous squares next to other snakes' heads
     ]
 
     return valid_neighbours
@@ -146,8 +146,17 @@ def move():
         # It's dangerous to follow our actual tail coord, so let's follow one of our tail neighbour coords instead
         tail_neighbour_coords = get_coord_neighbours(you_coords[-1])
 
-        # Find paths to our tail neighbours
-        paths = get_paths_to_coords(finder, you_head, tail_neighbour_coords)
+        # If our head is already next to our tail, we should remove that neighbour from possible targets
+        valid_neighbour_coords = [coord for coord in tail_neighbour_coords if coord != you_head]
+
+        # Find paths to our valid tail neighbours
+        paths = get_paths_to_coords(finder, you_head, valid_neighbour_coords)
+
+    # Can't get to food or our tail, things aren't looking good!
+    # Move to any valid adjacent square, if possible
+    if not paths:
+        head_neighbour_coords = get_coord_neighbours(you_head)
+        paths = get_paths_to_coords(finder, you_head, head_neighbour_coords)
 
     # Uh oh, we found no valid path. Random move it is!
     if not paths:
@@ -180,6 +189,6 @@ application = bottle.default_app()
 if __name__ == '__main__':
     bottle.run(
         application,
-        host=os.getenv('IP', '192.168.0.19'),
+        host=os.getenv('IP', '10.4.19.137'),
         port=os.getenv('PORT', '8080'),
         debug = True)
