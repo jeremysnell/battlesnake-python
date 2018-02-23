@@ -12,6 +12,11 @@ DIRECTION_MAP = {
     (1, 0): 'right'
 }
 
+FATAL_NODE_WEIGHT = 1000
+DANGER_NODE_WEIGHT = 100
+WALL_NODE_WEIGHT = 5
+HUNGER_THRESHOLD = 30
+
 
 # Add two coord tuples together
 def add_coords(coord_one, coord_two):
@@ -30,7 +35,8 @@ def point_to_coord(point):
 
 # Returns the cheapest path to a coord, using the astar algorithm
 def get_path_to_coord(finder, head_coord, target_coord):
-    return finder(head_coord, target_coord)
+    path = finder(head_coord, target_coord)
+    return path if path[0] else None
 
 
 # Returns the shortest paths to each point, using the astar algorithm
@@ -104,17 +110,17 @@ def get_cost(coord1, coord2, map_size, you_head, you_tail, danger_coords):
 
     # Pathing near walls costs more
     if coord2[0] == 0 or coord2[0] == map_size[0] - 1:
-        cost += 5
+        cost += WALL_NODE_WEIGHT
     if coord2[1] == 0 or coord2[1] == map_size[1] - 1:
-        cost += 5
+        cost += WALL_NODE_WEIGHT
 
     # Pathing into dangerous coords costs much more
     if coord2 in danger_coords:
-        cost += 50
+        cost += DANGER_NODE_WEIGHT
 
     # Actually moving into our tail should be strongly discouraged!
     if coord1 == you_head and coord2 == you_tail:
-        cost = 1000
+        cost = FATAL_NODE_WEIGHT
 
     return cost
 
@@ -129,18 +135,23 @@ def move():
     you_tail = you_coords[-1]
     you_health = data['you']['health']
     you_length = data['you']['length']
+    you_hungry = you_health < HUNGER_THRESHOLD
+
+    # Who's the longest snake? Could be useful...
+    longest_snake_length = max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']] or [None])
+
+    # Are we the longest (with buffer)?
+    you_is_longest = you_length > longest_snake_length + 1
 
     # Avoid squares that will kill us
     snake_coords = [point_to_coord(point) for snake in data['snakes']['data'] for point in snake['body']['data']]
     fatal_coords = [coord for coord in snake_coords if coord != you_tail]
 
-    # Avoid squares adjacent to enemy snake tails, since they're dangerous
-    other_snake_tails = [point_to_coord(snake['body']['data'][-1]) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
-    danger_coords = [neighbour for head in other_snake_tails for neighbour in get_coord_neighbours(head)]
-
     # Avoid squares adjacent to enemy snake heads, since they're dangerous
+    # Unless we're the longest, then they're safe
     other_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
-    danger_coords += [neighbour for head in other_snake_heads for neighbour in get_coord_neighbours(head)]
+    snake_head_neighbours = [neighbour for head in other_snake_heads for neighbour in get_coord_neighbours(head)]
+    danger_coords = snake_head_neighbours if not you_is_longest else []
 
     map_size = (data['width'], data['height'])
 
@@ -157,12 +168,7 @@ def move():
 
     next_path = []
 
-    # TODO: Maybe we want to eat as much as possible until we reach a certain length?
     # TODO: Once we're bigger than other snakes, go for their heads?
-    # TODO: Use node weighting to simplify ifs
-
-    # Who's the longest snake? Could be useful...
-    # longest = max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']] or [None])
 
     # Find paths to all possible food
     food_paths = get_paths_to_points(finder, you_head, data['food']['data'])
@@ -170,19 +176,9 @@ def move():
     # Let's follow the cheapest path, as long as we can get there before dying
     best_food_path = min([path for path in food_paths if len(path[1]) <= you_health], key=lambda x: x[0]) if food_paths else None
 
-    # Opportunistically eat close food
-    if best_food_path and best_food_path[0] <= 2:
+    # Eat food if it's close, we're hungry, or we're short
+    if best_food_path and (best_food_path[0] <= 2 or you_hungry or (not you_is_longest and best_food_path[0] < DANGER_NODE_WEIGHT)):
         next_path = best_food_path
-
-    # If snake is hungry, then try and eat some food
-    if not next_path and you_health < 50:
-        next_path = best_food_path
-
-        # No luck. We're hungry, so try again, ignoring danger
-        if not next_path:
-            danger_coords = []
-            paths = get_paths_to_points(finder, you_head, data['food']['data'])
-            next_path = min([path for path in paths if path[0] <= you_health], key=lambda x: x[0]) if paths else None
 
     # If we're not going after food, or can't find a path to any, just follow our tail
     if not next_path:
@@ -225,6 +221,7 @@ application = bottle.default_app()
 if __name__ == '__main__':
     bottle.run(
         application,
-        host=os.getenv('IP', '10.4.19.137'),
+        #host=os.getenv('IP', '10.4.19.137'),
+        host=os.getenv('IP', '192.168.0.19'),
         port=os.getenv('PORT', '8080'),
         debug = True)
