@@ -28,14 +28,14 @@ def point_to_coord(point):
     return point['x'], point['y']
 
 
-# Returns the shortest paths to each coord, using the astar algorithm
-def get_paths_to_coords(finder, head_coord, target_coords):
-    return [path for path in [finder(head_coord, coord) for coord in target_coords] if path[0]]
+# Returns the cheapest path to a coord, using the astar algorithm
+def get_path_to_coord(finder, head_coord, target_coord):
+    return finder(head_coord, target_coord)
 
 
 # Returns the shortest paths to each point, using the astar algorithm
-def get_paths_to_points(finder, head_coords, target_points):
-    return get_paths_to_coords(finder, head_coords, [point_to_coord(point) for point in target_points])
+def get_paths_to_points(finder, head_coord, target_points):
+    return [path for path in [finder(head_coord, coord) for coord in [point_to_coord(point) for point in target_points]] if path[0]]
 
 
 # Get the four neighbouring squares for a given coord (up, down, left, right)
@@ -79,106 +79,133 @@ def start():
 }
 
 
-def get_valid_neighbours(coord, data, ignore_head_danger):
+def get_valid_neighbours(coord, map_size, fatal_coords):
 
-    # TODO: Other snake tails border squares can be danger zones too, if they eat food
     # TODO: Don't go into a space smaller than your body, using flood fill
-
-    # Coords of all snakes' bodies, including heads
-    snakes_coords = [point_to_coord(point) for snake in data['snakes']['data'] for point in snake['body']['data']]
-
-    # Coords of all enemy snakes' heads
-    other_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
-
-    # Coords of all squares adjacent to an enemy snake's head. We avoid these squares, since they are dangerous
-    other_head_neighbors = [neighbour for head in other_snake_heads for neighbour in get_coord_neighbours(head)]
 
     # Possible neighbours of input coords
     coord_neighbors = get_coord_neighbours(coord)
 
     valid_neighbours = [
         neighbor for neighbor in coord_neighbors
-        if 0 <= neighbor[0] < data['width']         # X Coord must be within map
-        and 0 <= neighbor[1] < data['height']       # Y Coord must be within map
-        and neighbor not in snakes_coords           # Don't crash into any snake
-        and (neighbor not in other_head_neighbors   # Avoid dangerous squares next to other snakes' heads
-             or ignore_head_danger)                 # ...unless we're ignoring the danger
+        if 0 <= neighbor[0] < map_size[0]       # X Coord must be within map
+        and 0 <= neighbor[1] < map_size[1]      # Y Coord must be within map
+        and neighbor not in fatal_coords        # Don't crash into any snake
     ]
 
     return valid_neighbours
+
+
+# Node cost calculations used to weight safer or "better" paths
+def get_cost(coord1, coord2, map_size, you_head, you_tail, danger_coords):
+    # Cost is weighted towards squares in the center, since these are safer(?)
+    # cost = (abs(coord2[0] - map_size[0] / 2) + abs(coord2[1] - map_size[1] / 2)) * 2
+    cost = 1
+
+    # Pathing near walls costs more
+    if coord2[0] == 0 or coord2[0] == map_size[0] - 1:
+        cost += 5
+    if coord2[1] == 0 or coord2[1] == map_size[1] - 1:
+        cost += 5
+
+    # Pathing into dangerous coords costs much more
+    if coord2 in danger_coords:
+        cost += 50
+
+    # Actually moving into our tail should be strongly discouraged!
+    if coord1 == you_head and coord2 == you_tail:
+        cost = 1000
+
+    return cost
 
 
 @bottle.post('/move')
 def move():
     data = bottle.request.json
 
-    # Used to control whether we avoid coords adjacent to snake heads when pathing
-    # If things are getting desperate, we'll ignore the danger
-    ignore_head_danger = False
+    # Our snake's data
+    you_coords = [point_to_coord(point) for point in data['you']['body']['data']]
+    you_head = you_coords[0]
+    you_tail = you_coords[-1]
+    you_health = data['you']['health']
+    you_length = data['you']['length']
+
+    # Avoid squares that will kill us
+    snake_coords = [point_to_coord(point) for snake in data['snakes']['data'] for point in snake['body']['data']]
+    fatal_coords = [coord for coord in snake_coords if coord != you_tail]
+
+    # Avoid squares adjacent to enemy snake tails, since they're dangerous
+    other_snake_tails = [point_to_coord(snake['body']['data'][-1]) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
+    danger_coords = [neighbour for head in other_snake_tails for neighbour in get_coord_neighbours(head)]
+
+    # Avoid squares adjacent to enemy snake heads, since they're dangerous
+    other_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data'] if snake['id'] != data['you']['id']]
+    danger_coords += [neighbour for head in other_snake_heads for neighbour in get_coord_neighbours(head)]
+
+    map_size = (data['width'], data['height'])
 
     # Used by the astar algorithm to evaluate path nodes
-    def get_neighbors(node):
-        return get_valid_neighbours(node, data, ignore_head_danger)
+    def neighbors_func(node):
+        return get_valid_neighbours(node, map_size, fatal_coords)
+
+    # Used by the astar algorithm to evaluate node costs
+    def cost_func(node1, node2):
+        return get_cost(node1, node2, map_size, you_head, you_tail, danger_coords)
 
     # Create the astar path finder
-    finder = astar.pathfinder(neighbors=get_neighbors)
+    finder = astar.pathfinder(neighbors=neighbors_func, cost=cost_func)
 
-    # Our snake's body coords
-    you_coords = [point_to_coord(point) for point in data['you']['body']['data']]
-
-    # Our current head coord
-    you_head = you_coords[0]
-
-    paths = []
+    next_path = []
 
     # TODO: Maybe we want to eat as much as possible until we reach a certain length?
     # TODO: Once we're bigger than other snakes, go for their heads?
-    # TODO: Maybe eat food that is opportunistically close?
-    # TODO: Add path weighting, based on snake/food/wall proximity?
+    # TODO: Use node weighting to simplify ifs
 
     # Who's the longest snake? Could be useful...
-    longest = max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']])
+    # longest = max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']] or [None])
 
-    # If snake is hungry, or we're "uncoiling", or we're not the longest snake, then try and eat some food
-    if data['you']['health'] < 50 or data['turn'] < data['you']['length']:
-        # Find paths to all possible food
-        paths = get_paths_to_points(finder, you_head, data['food']['data'])
+    # Find paths to all possible food
+    food_paths = get_paths_to_points(finder, you_head, data['food']['data'])
+
+    # Let's follow the cheapest path, as long as we can get there before dying
+    best_food_path = min([path for path in food_paths if len(path[1]) <= you_health], key=lambda x: x[0]) if food_paths else None
+
+    # Opportunistically eat close food
+    if best_food_path and best_food_path[0] <= 2:
+        next_path = best_food_path
+
+    # If snake is hungry, then try and eat some food
+    if not next_path and you_health < 50:
+        next_path = best_food_path
+
+        # No luck. We're hungry, so try again, ignoring danger
+        if not next_path:
+            danger_coords = []
+            paths = get_paths_to_points(finder, you_head, data['food']['data'])
+            next_path = min([path for path in paths if path[0] <= you_health], key=lambda x: x[0]) if paths else None
 
     # If we're not going after food, or can't find a path to any, just follow our tail
-    if not paths:
-        # It's dangerous to follow our actual tail coord, so let's follow one of our tail neighbour coords instead
-        tail_neighbour_coords = get_coord_neighbours(you_coords[-1])
+    if not next_path:
+        # Find path to our tail
+        next_path = get_path_to_coord(finder, you_head, you_tail)
 
-        # If our head is already next to our tail, we should remove that neighbour from possible targets
-        valid_neighbour_coords = [coord for coord in tail_neighbour_coords if coord != you_head]
-
-        # Find paths to our valid tail neighbours
-        paths = get_paths_to_coords(finder, you_head, valid_neighbour_coords)
-
-    # Can't get to food or our tail, things aren't looking good!
+    # Can't get to our tail safely, things aren't looking good!
     # Move to any safe adjacent square, if possible
-    if not paths:
-        head_neighbour_coords = get_coord_neighbours(you_head)
-        paths = get_paths_to_coords(finder, you_head, head_neighbour_coords)
+    if not next_path:
+        valid_moves = neighbors_func(you_head)
+        next_coord = random.choice(valid_moves) if valid_moves else None
 
-    # Try again, ignoring head danger
-    if not paths:
-        ignore_head_danger = True
-        head_neighbour_coords = get_coord_neighbours(you_head)
-        paths = get_paths_to_coords(finder, you_head, head_neighbour_coords)
+        if not next_coord:
+            # Uh oh, we found no valid moves. Random move it is!
+            return {
+                'move': random.choice(DIRECTION_MAP.values()),
+                'taunt': 'Uh oh'
+            }
+    else:
+        # Get the second coord in the shortest path (the first coord is our current position)
+        next_coord = next_path[1][1]
 
-    # Uh oh, we found no valid path. Random move it is!
-    if not paths:
-        return {
-            'move': random.choice(DIRECTION_MAP.values()),
-            'taunt': 'Uh oh'
-        }
-
-    # Let's follow the shortest path of the paths we found
-    path = min(paths, key=lambda x: x[0])
-
-    # Get the second coord in the shortest path (the first coord is our current position)
-    next_coord = path[1][1]
+        print 'Target: %s - Cost: %s' % (next_path[1][-1], next_path[0])
 
     # Calculate to the change between our head and the next move
     coord_delta = sub_coords(next_coord, you_head)
