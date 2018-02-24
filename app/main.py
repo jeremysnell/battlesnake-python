@@ -13,11 +13,15 @@ DIRECTION_MAP = {
 }
 
 # Algorithm constants
-DANGER_WEIGHT = 100
-FLOOD_DANGER_WEIGHT = 25
-WALL_NODE_WEIGHT = 5
-HUNGER_THRESHOLD = 30
-MAX_OPPORTUNISTIC_EAT_COST = 2
+BASE_COST = 10
+DANGER_WEIGHT = 1000
+FLOOD_DANGER_WEIGHT = 50
+WALL_NODE_WEIGHT = 20
+BODY_ADJACENT_WEIGHT = -10
+
+PECKISH_THRESHOLD = 30
+STARVING_THRESHOLD = 10
+MAX_OPPORTUNISTIC_EAT_COST = BASE_COST * 2
 
 
 # Add two coord tuples together
@@ -51,10 +55,13 @@ def get_coord_neighbours(coord):
     return [add_coords(coord, dir_coord) for dir_coord in DIRECTION_MAP.keys()]
 
 
+# Is the given coord adjacent to any of the given coords?
+def is_adjacent_to_coords(coord, coords):
+    return any([neighbour for neighbour in get_coord_neighbours(coord) if neighbour in coords])
+
+
 # Find non-fatal node neighbours
 def get_valid_neighbours(coord, map_size, fatal_coords, my_head, my_tail):
-
-    # TODO: Don't go into a space smaller than your body, using flood fill
 
     # Possible neighbours of input coords
     coord_neighbors = get_coord_neighbours(coord)
@@ -71,10 +78,14 @@ def get_valid_neighbours(coord, map_size, fatal_coords, my_head, my_tail):
 
 
 # Node cost calculation, which will make more dangerous paths cost more
-def get_cost(coord1, coord2, map_size, head_danger_coords, coord_to_fill_danger):
+def get_cost(coord1, coord2, map_size, head_danger_coords, coord_to_fill_danger, im_trapped, my_body):
     # Cost is weighted towards squares in the center, since these are safer(?)
     # cost = (abs(coord2[0] - map_size[0] / 2) + abs(coord2[1] - map_size[1] / 2)) * 2
-    cost = 1
+    cost = BASE_COST
+
+    # If we're trapped, we need to pack tightly, so we'll try and go next to our body
+    if im_trapped and is_adjacent_to_coords(coord2, my_body):
+        cost += BODY_ADJACENT_WEIGHT
 
     # Pathing near walls costs more
     if coord2[0] == 0 or coord2[0] == map_size[0] - 1:
@@ -92,6 +103,7 @@ def get_cost(coord1, coord2, map_size, head_danger_coords, coord_to_fill_danger)
     return cost
 
 
+# Determines the size of the safe area around a coord
 def flood_fill(start_coord, neighbour_func, max_size=None):
     explored = []
     queue = [start_coord]
@@ -117,12 +129,12 @@ def move():
     map_size = (data['width'], data['height'])
 
     # Our snake's data
+    my_length = data['you']['length']
+    my_health = data['you']['health']
     my_coords = [point_to_coord(point) for point in data['you']['body']['data']]
     my_head = my_coords[0]
+    my_body = my_coords[1:-1] if my_length > 2 else []
     my_tail = my_coords[-1]
-    my_health = data['you']['health']
-    my_length = data['you']['length']
-    im_hungry = my_health < HUNGER_THRESHOLD
 
     # Avoid squares that will kill us
     fatal_coords = [point_to_coord(point) for snake in data['snakes']['data'] for point in snake['body']['data']]
@@ -148,6 +160,7 @@ def move():
 
     # TODO: Weight based on relative size of flood fill areas?
     # TODO: Weight so open space is better than corridors?
+    # TODO: Handle enclosed space packing better
 
     # Find the size of the area we'd be moving into, for each valid move
     fill_coords = dict([(move_coord, flood_fill(move_coord, neighbors_func, my_length)) for move_coord in valid_moves])
@@ -155,11 +168,12 @@ def move():
     # If the area is smaller than our size, assign a danger to it
     coord_to_fill_danger = dict([(coord, (my_length - len(fill)) * FLOOD_DANGER_WEIGHT) for coord, fill in fill_coords.items() if len(fill) < my_length])
 
-    print coord_to_fill_danger
+    # We're enclosed in an area smaller than our body
+    im_trapped = len(coord_to_fill_danger) == len(fill_coords)
 
     # Used by the astar algorithm to evaluate node costs
     def cost_func(node1, node2):
-        return get_cost(node1, node2, map_size, head_danger_coords, coord_to_fill_danger)
+        return get_cost(node1, node2, map_size, head_danger_coords, coord_to_fill_danger, im_trapped, my_body)
 
     # Create the astar path finder
     finder = astar.pathfinder(neighbors=neighbors_func, cost=cost_func)
@@ -176,20 +190,17 @@ def move():
 
     # Eat food if it's close, we're hungry, or we're short
     if best_food_path and (best_food_path[0] <= MAX_OPPORTUNISTIC_EAT_COST
-                           or im_hungry
+                           or (my_health < PECKISH_THRESHOLD and best_food_path[0] < DANGER_WEIGHT)
+                           or my_health < STARVING_THRESHOLD
                            or (not im_longest and best_food_path[0] < DANGER_WEIGHT)):
         next_path = best_food_path
 
-    # If we're not going after food, or can't find a path to any, just follow our tail
-    if not next_path:
-        next_path = get_path_to_coord(finder, my_head, my_tail)
-
-    # Can't get to our tail safely, so move to the safest adjacent square
+    # Move to the safest adjacent square
     if not next_path:
         valid_move_costs = [(coord, cost_func(my_head, coord)) for coord in valid_moves]
         next_coord = min(valid_move_costs, key=lambda x: x[1])[0] if valid_move_costs else None
 
-        # Uh oh, we found no valid moves. Random move it is!
+        # Uh oh, we found no valid moves. Randomly move to our death!
         if not next_coord:
             return {
                 'move': random.choice(DIRECTION_MAP.values()),
