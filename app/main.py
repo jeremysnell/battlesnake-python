@@ -146,8 +146,8 @@ def flood_fill(start_coord, neighbor_func, max_size=None):
     return explored
 
 
-@bottle.post('/<traits>/move')
 @bottle.post('/move')
+@bottle.post('/<traits>/move')
 def move(traits=''):
     data = bottle.request.json
 
@@ -271,20 +271,21 @@ def move(traits=''):
     }
 
 
-@bottle.route('/<traits>/')
 @bottle.route('/')
+@bottle.route('/<traits>')
+@bottle.route('/<traits>/')
 def static(traits=''):
     return "the server is running"
 
 
-@bottle.route('/<traits>/static/<path:path>')
 @bottle.route('/static/<path:path>')
+@bottle.route('/<traits>/static/<path:path>')
 def static(path, traits=''):
     return bottle.static_file(path, root='static/')
 
 
-@bottle.post('/<traits>/start')
 @bottle.post('/start')
+@bottle.post('/<traits>/start')
 def start(traits=''):
     head_url = '%s://%s/static/head.png' % (
         bottle.request.urlparts.scheme,
