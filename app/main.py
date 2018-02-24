@@ -122,7 +122,7 @@ def get_cost(coord1, coord2, map_size, head_danger_coords, coord_to_fill_danger,
 
     # Pathing into squares in an area smaller than ourselves costs more, relative to how small
     if coord2 in coord_to_fill_danger.keys():
-        cost += (1 - (coord_to_fill_danger[coord2] / my_length)) * FLOOD_DANGER_COST
+        cost += (1 - (coord_to_fill_danger[coord2] / float(my_length))) * FLOOD_DANGER_COST
 
     return cost
 
