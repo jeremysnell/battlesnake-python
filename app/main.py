@@ -271,13 +271,15 @@ def move(traits=''):
     }
 
 
+@bottle.route('/<traits>/')
 @bottle.route('/')
-def static():
+def static(traits=''):
     return "the server is running"
 
 
+@bottle.route('/<traits>/static/<path:path>')
 @bottle.route('/static/<path:path>')
-def static(path):
+def static(path, traits=''):
     return bottle.static_file(path, root='static/')
 
 
