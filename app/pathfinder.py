@@ -33,9 +33,9 @@ class PathFinder:
             [(move_coord, self.flood_fill(move_coord, self.my_length)) for move_coord in
              self.valid_moves])
 
-        # If the area is smaller than our size, it's dangerous
+        # If the area is smaller than our size (with multiplier), it's dangerous
         self.coord_to_trap_danger = dict(
-            [(coord, len(fill)) for coord, fill in self.fill_coords.items() if len(fill) < self.my_length])
+            [(coord, len(fill)) for coord, fill in self.fill_coords.items() if len(fill) < self.my_length * TRAP_SIZE_MULTIPLIER])
 
         # We're enclosed in an area smaller than our body
         self.im_trapped = len(self.coord_to_trap_danger) == len(self.fill_coords)
