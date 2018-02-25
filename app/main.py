@@ -20,6 +20,8 @@ def move(traits=''):
     # TODO: If there's another, bigger head in a small space with you, BAD!
     # TODO: Tail is very dangerous if about to eat
     # TODO: Should being next to yourself always cost less?
+    # TODO: Ignore forecasts based on trait?
+    # TODO: Better space packing?
 
     data = bottle.request.json
 
@@ -65,7 +67,7 @@ def move(traits=''):
     if not next_path and TRAIT_GLUTTONOUS in snake_traits:
 
         # Are we the longest snake?
-        im_longest = my_length > max([snake['length'] for snake in data['snakes']['data']])
+        im_longest = my_length > max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']])
 
         if best_food_path and not im_longest and best_food_path[0] < MAX_COST_CONSIDERED_SAFE:
             next_path = best_food_path
