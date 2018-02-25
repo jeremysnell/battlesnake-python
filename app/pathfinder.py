@@ -90,7 +90,7 @@ class PathFinder:
         if node2 in self.coord_to_trap_danger.keys():
             cost += (1 - (self.coord_to_trap_danger[node2] / float(self.my_length * TRAP_SIZE_MULTIPLIER))) * TRAP_DANGER_COST
 
-        return cost
+        return max(cost, 1)
 
     # Find non-fatal node neighbors
     def get_valid_neighbors(self, coord):
