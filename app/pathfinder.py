@@ -1,13 +1,14 @@
 from pypaths import astar
 
 from app.constants import BASE_COST, TRAPPED_SELF_ADJACENT_COST, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
-    TRAPPED_WALL_ADJACENT_COST, TRAP_SIZE_MULTIPLIER
+    TRAPPED_WALL_ADJACENT_COST, TRAP_SIZE_MULTIPLIER, TRAIT_FORESIGHTED
 from app.utility import point_to_coord, get_coord_neighbors, get_absolute_distance, is_adjacent_to_coords
 
 
 class PathFinder:
-    def __init__(self, data, my_coords, my_head, my_length):
+    def __init__(self, data, snake_traits, my_coords, my_head, my_length):
         self.data = data
+        self.snake_traits = snake_traits
         self.my_coords = my_coords
         self.my_head = my_head
         self.my_length = my_length
@@ -63,6 +64,10 @@ class PathFinder:
         # Avoid squares that will kill us
         snake_bodies = [[point_to_coord(point) for point in snake['body']['data']]
                         for snake in self.data['snakes']['data']]
+
+        # Don't look ahead, just use current world state
+        if TRAIT_FORESIGHTED not in self.snake_traits:
+            return snake_bodies
 
         # Don't move into any coords where a snake body is,
         # unless we're far enough away that it won't be there when we get there

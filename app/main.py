@@ -20,7 +20,6 @@ def move(traits=''):
     # TODO: If there's another, bigger head in a small space with you, BAD!
     # TODO: Tail is very dangerous if about to eat
     # TODO: Should being next to yourself always cost less?
-    # TODO: Ignore forecasts based on trait?
     # TODO: Better space packing?
 
     data = bottle.request.json
@@ -36,7 +35,7 @@ def move(traits=''):
     my_head = my_coords[0]
     my_tail = my_coords[-1]
 
-    pathfinder = PathFinder(data, my_coords, my_head, my_length)
+    pathfinder = PathFinder(data, snake_traits, my_coords, my_head, my_length)
 
     next_path = []
 
