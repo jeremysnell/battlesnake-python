@@ -27,6 +27,11 @@ def get_absolute_distance(coord1, coord2):
     return abs(diff[0]) + abs(diff[1])
 
 
+# Get coords adjacent to coord, from the given coords
+def get_adjacent_coords(coord, coords):
+    return [neighbor for neighbor in get_coord_neighbors(coord) if neighbor in coords]
+
+
 # Is the given coord adjacent to any of the given coords?
 def is_adjacent_to_coords(coord, coords):
-    return any([neighbor for neighbor in get_coord_neighbors(coord) if neighbor in coords])
+    return any(get_adjacent_coords(coord, coords))

@@ -21,6 +21,9 @@ def move(traits=''):
     # TODO: Tail is very dangerous if about to eat
     # TODO: Should being next to yourself always cost less?
     # TODO: Better space packing?
+    # TODO: If our tail is in an area, it's safer
+    # TODO: Area danger based on fillable space, not total space
+
 
     data = bottle.request.json
 
