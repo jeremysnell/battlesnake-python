@@ -18,11 +18,12 @@ def move(traits=''):
     # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
     # TODO: Get DNA working
     # TODO: If there's another, bigger head in a small space with you, BAD!
-    # TODO: Tail is very dangerous if about to eat
-    # TODO: Should being next to yourself always cost less?
-    # TODO: Better space packing?
-    # TODO: If our tail is in an area, it's safer
+    # TODO: Other's tails are very dangerous if they're about to eat
+    # TODO: Should being next to yourself always cost less?safer
+    # TODO: If our tail is in an area, it's
     # TODO: Area danger based on fillable space, not total space
+    # TODO: Go after food we're closer to than any other snake first
+    # TODO: Cut off snakes, if nearby and aggressive
 
 
     data = bottle.request.json
@@ -48,10 +49,17 @@ def move(traits=''):
     # Let's follow the cheapest path
     best_food_path = min(food_paths, key=lambda x: x[0]) if food_paths else None
 
-    # Eat food if it's close or we're hungry
+    # Eat if we're starving
+    if best_food_path and my_health < STARVING_THRESHOLD:
+        next_path = (None, best_food_path)
+
+    # We're trapped, so let's pack in as tight as we can
+    if pathfinder.im_trapped:
+        next_path = pathfinder.best_path_fill(my_head, my_length)
+
+    # Eat food if it's close or we're peckish
     if best_food_path and ((TRAIT_OPPORTUNISTIC in snake_traits and best_food_path[0] <= MAX_OPPORTUNISTIC_EAT_COST)
-                           or (my_health < PECKISH_THRESHOLD and best_food_path[0] < MAX_COST_CONSIDERED_SAFE)
-                           or my_health < STARVING_THRESHOLD):
+                           or (my_health < PECKISH_THRESHOLD and best_food_path[0] < MAX_COST_CONSIDERED_SAFE)):
         next_path = best_food_path
 
     # The bigger snakes eat the little ones

@@ -61,6 +61,18 @@ class PathFinder:
 
         return explored
 
+    # Finds the best path to fill an area
+    def best_path_fill(self, start_coord, max_path_length=None):
+        def recurse_path(coord, path):
+            current_path = list(path)
+            current_path.append(coord)
+            neighbors = [neighbor for neighbor in self.get_valid_neighbors(coord) if neighbor not in current_path]
+            if neighbors and (not max_path_length or len(current_path) < max_path_length):
+                return max([recurse_path(neighbor, current_path) for neighbor in neighbors], key=lambda x: len(x))
+            return current_path
+
+        return recurse_path(start_coord, [])
+
     def _get_fatal_coords(self):
         # Avoid squares that will kill us
         snake_bodies = [[point_to_coord(point) for point in snake['body']['data']]
@@ -93,7 +105,9 @@ class PathFinder:
             cost += HEAD_DANGER_COST
 
         # Pathing into a small area costs more, based on how small it is compared to our length
-        if node2 in self.coord_to_trap_danger.keys():
+        # If we're already trapped, and no moves make us "more" trapped, ignore the danger
+        if (not self.im_trapped or len(set(self.coord_to_trap_danger.values())) > 1) \
+                and node2 in self.coord_to_trap_danger.keys():
             cost += (1 - (self.coord_to_trap_danger[node2] / float(self.my_length * TRAP_SIZE_MULTIPLIER))) * TRAP_DANGER_COST
 
         return max(cost, 1)
