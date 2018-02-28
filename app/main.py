@@ -80,7 +80,7 @@ def get_move(dna, traits):
         next_path = best_food_path
 
     # We're trapped, so let's pack in as tight as we can
-    if pathfinder.im_trapped:
+    if pathfinder.is_trapped:
         next_path = pathfinder.get_best_path_fill(me.head, me.length)
 
     # Eat food if it's close or we're peckish

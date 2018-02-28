@@ -19,12 +19,9 @@ class PathFinder:
     def flood_fill(self, start_coord, max_fill_size=None):
         explored = []
         queue = [start_coord]
-        while queue:
+        while queue and (max_fill_size is None or len(explored) < max_fill_size):
             next_coord = queue.pop(0)
             explored.append(next_coord)
-
-            if max_fill_size and len(explored) == max_fill_size:
-                return None
 
             neighbors = self.get_valid_neighbors(next_coord)
             for neighbor in neighbors:
@@ -76,11 +73,11 @@ class PathFinder:
 
         # Pathing near walls costs more, unless we're trapped, then it's actually better
         adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
-        cost += adjacent_wall_count * (-self.me.dna(TRAPPED_WALL_ADJACENT_DISCOUNT) if self.im_trapped else self.me.dna(WALL_DANGER_COST))
+        cost += adjacent_wall_count * (-self.me.dna(TRAPPED_WALL_ADJACENT_DISCOUNT) if self.is_trapped else self.me.dna(WALL_DANGER_COST))
 
         # Pathing near other snake's bodies is more expensive, unless we're trapped
         cost += len(get_adjacent_coords(node2, self.fatal_coords)) * (-self.me.dna(TRAPPED_BODY_ADJACENT_DISCOUNT)
-                                                                      if self.im_trapped else self.me.dna(BODY_DANGER_COST))
+                                                                      if self.is_trapped else self.me.dna(BODY_DANGER_COST))
 
         # Pathing into squares adjacent to a bigger snake head costs much more
         if node2 in self.head_danger_coords:
@@ -88,7 +85,7 @@ class PathFinder:
 
         # Pathing into a small area costs more, based on how small it is compared to our length
         # If we're already trapped, and no moves make us "more" trapped, ignore the danger
-        if (not self.im_trapped or len(set(self.coord_to_trap_danger.values())) > 1) \
+        if (not self.is_trapped or len(set(self.coord_to_trap_danger.values())) > 1) \
                 and node2 in self.coord_to_trap_danger.keys():
             cost += (1 - (self.coord_to_trap_danger[node2] / float(self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER)))) * self.me.dna(TRAP_DANGER_COST)
 
@@ -119,19 +116,18 @@ class PathFinder:
                                    get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.me.head, neighbor))]
 
         # Get valid moves
-        self.valid_moves = self.get_valid_neighbors(self.me.head)
+        valid_moves = self.get_valid_neighbors(self.me.head)
 
         # Find the size of the area we'd be moving into, for each valid move
-        self.fill_coords = dict(
-            [(move_coord, self.flood_fill(move_coord, self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER))) for move_coord in
-             self.valid_moves])
+        fill_coords = dict(
+            [(move_coord, self.flood_fill(move_coord, self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER))) for move_coord in valid_moves])
 
         # If the area is smaller than our size (with multiplier), it's dangerous
         self.coord_to_trap_danger = dict(
-            [(coord, len(fill)) for coord, fill in self.fill_coords.items() if fill])
+            [(coord, len(fill)) for coord, fill in fill_coords.items() if fill])
 
         # We're enclosed in an area smaller than our body
-        self.im_trapped = len(self.coord_to_trap_danger) == len(self.fill_coords)
+        self.is_trapped = len(self.coord_to_trap_danger) == len(fill_coords)
 
         # Used by the astar algorithm to evaluate node costs
         def cost_func(node1, node2):
