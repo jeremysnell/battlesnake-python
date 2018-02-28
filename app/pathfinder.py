@@ -157,5 +157,8 @@ class PathFinder:
     def get_paths_to_points(self, source_coord, target_points):
         return self.get_paths_to_coords(source_coord, [point_to_coord(point) for point in target_points])
 
+    # Is this path safe enough for us to use?
+    # A max of 0 means all paths are safe
     def path_is_safe(self, path):
-        return path[0] < self.me.dna(MAX_COST_CONSIDERED_SAFE)
+        max_cost = self.me.dna(MAX_COST_CONSIDERED_SAFE)
+        return True if max_cost == 0 else path[0] < max_cost
