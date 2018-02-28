@@ -24,6 +24,7 @@ def move(traits=''):
     # TODO: Area danger based on fillable space, not total space
     # TODO: Go after food we're closer to than any other snake first
     # TODO: Cut off snakes, if nearby and aggressive
+    # TODO: Foresight when trapped
 
 
     data = bottle.request.json

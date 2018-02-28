@@ -3,7 +3,7 @@ from pypaths import astar
 from app.constants import BASE_COST, TRAPPED_BODY_ADJACENT_COST, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
     TRAPPED_WALL_ADJACENT_COST, TRAP_SIZE_MULTIPLIER, TRAIT_FORESIGHTED, BODY_DANGER_COST
 from app.utility import point_to_coord, get_coord_neighbors, get_absolute_distance, is_adjacent_to_coords, \
-    get_adjacent_coords
+    get_adjacent_coords, is_adjacent_to_coord
 
 
 class PathFinder:
@@ -20,11 +20,11 @@ class PathFinder:
         self.fatal_coords = self._get_fatal_coords()
 
         # Avoid squares adjacent to enemy snake heads, since they're dangerous
-        # Unless we're longer than them, then we're safe
-        self.bigger_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in self.data['snakes']['data'] if
-                                   snake['id'] != self.my_id and snake['length'] >= self.my_length]
-        self.head_danger_coords = [neighbor for head in self.bigger_snake_heads for neighbor in
-                                   get_coord_neighbors(head)]
+        # Smaller snakes that we're directly adjacent to are safe, though
+        self.snake_heads = [(point_to_coord(snake['body']['data'][0]), snake['length'] < self.my_length)
+                                   for snake in self.data['snakes']['data']]
+        self.head_danger_coords = [neighbor for head, smaller in self.snake_heads for neighbor in
+                                   get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.my_head, neighbor))]
 
         # Get valid moves
         self.valid_moves = self.get_valid_neighbors(self.my_head)

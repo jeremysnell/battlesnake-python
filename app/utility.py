@@ -32,6 +32,11 @@ def get_adjacent_coords(coord, coords):
     return [neighbor for neighbor in get_coord_neighbors(coord) if neighbor in coords]
 
 
+# Is coord 1 adjacent to coord 2?
+def is_adjacent_to_coord(coord1, coord2):
+    return coord1 in get_coord_neighbors(coord2)
+
+
 # Is the given coord adjacent to any of the given coords?
 def is_adjacent_to_coords(coord, coords):
     return any(get_adjacent_coords(coord, coords))
