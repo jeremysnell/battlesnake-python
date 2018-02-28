@@ -101,10 +101,10 @@ def get_move(dna, traits):
     # Path to a other snakes' head neighbor squares
     if not next_path and me.has_trait(AGGRESSIVE):
         # We'll use the name prefix to tell who's friendly
-        friendly_snakes = [snake for snake in data['snakes']['data']
-                           if snake['name'].split(' ')[0] == me.name.split(' ')[0]]
+        friendly_snake_ids = [snake['id'] for snake in data['snakes']['data']
+                              if snake['name'].split(' ')[0] == me.name.split(' ')[0]]
         enemy_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data']
-                             if (me.has_trait(COOPERATIVE) and snake not in friendly_snakes) or snake['id'] != data['you']['id']]
+                             if (not me.has_trait(COOPERATIVE) or snake['id'] not in friendly_snake_ids) and snake['id'] != data['you']['id']]
         enemy_snake_targets = [neighbor for head in enemy_snake_heads for neighbor in get_coord_neighbors(head)]
         attack_paths = pathfinder.get_paths_to_coords(me.head, enemy_snake_targets)
         best_attack_path = min(attack_paths, key=lambda x: x[0]) if attack_paths else None
@@ -134,7 +134,7 @@ def get_move(dna, traits):
         # Our target will be the second coord in the shortest path (the first coord is our current position)
         next_coord = next_path[1][1]
 
-        print 'Target: %s - Cost: %s' % (next_path[1][-1], next_path[0])
+        print 'Name: %s - Next: %s - Target: %s - Cost: %s' % (me.name, next_path[1][0], next_path[1][-1], next_path[0])
 
     # Calculate to the change between our head and the next move
     coord_delta = sub_coords(next_coord, me.head)

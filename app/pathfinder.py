@@ -116,11 +116,11 @@ class PathFinder:
                                    get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.me.head, neighbor))]
 
         # Get valid moves
-        valid_moves = self.get_valid_neighbors(self.me.head)
+        self.valid_moves = self.get_valid_neighbors(self.me.head)
 
         # Find the size of the area we'd be moving into, for each valid move
         fill_coords = dict(
-            [(move_coord, self.flood_fill(move_coord, self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER))) for move_coord in valid_moves])
+            [(move_coord, self.flood_fill(move_coord, self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER))) for move_coord in self.valid_moves])
 
         # If the area is smaller than our size (with multiplier), it's dangerous
         self.coord_to_trap_danger = dict(
@@ -157,4 +157,4 @@ class PathFinder:
     # A max of 0 means all paths are safe
     def path_is_safe(self, path):
         max_cost = self.me.dna(MAX_COST_CONSIDERED_SAFE)
-        return True if max_cost == 0 else path[0] < max_cost
+        return True if max_cost == 0 else path[0] <= max_cost
