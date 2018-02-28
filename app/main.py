@@ -151,48 +151,55 @@ def get_move(dna, traits):
 @bottle.post('/move')
 @bottle.post('/<traits>/move')
 @bottle.post('/<dna>/<traits>/move')
-def move(dna='', traits=''):
+@bottle.post('/<color>/<dna>/<traits>/move')
+def move(dna='', traits='', color=''):
     return get_move(dna, traits)
 
 @bottle.route('/')
 @bottle.route('/<traits>/')
 @bottle.route('/<dna>/<traits>/')
-def static(dna='', traits=''):
+@bottle.post('/<color>/<dna>/<traits>/')
+def static(dna='', traits='', color=''):
     return "the server is running"
 
 
 @bottle.route('/static/<path:path>')
 @bottle.route('/<traits>/static/<path:path>')
 @bottle.route('/<dna>/<traits>/static/<path:path>')
-def static(path, dna='', traits=''):
+@bottle.post('/<color>/<dna>/<traits>/static/<path:path>')
+def static(path, dna='', traits='', color=''):
     return bottle.static_file(path, root='static/')
 
 
 @bottle.post('/start')
 @bottle.post('/<traits>/start')
 @bottle.post('/<dna>/<traits>/start')
-def start(dna='', traits=''):
+@bottle.post('/<color>/<dna>/<traits>/start')
+def start(dna='', traits='', color=''):
     head_url = '%s://%s/static/head.png' % (
         bottle.request.urlparts.scheme,
         bottle.request.urlparts.netloc
     )
 
-    # Company pride
-    s4_colors = {
-        'indigo': '#4E54A4',
-        'green': '#44B5AD',
-        'orange': '#F37970',
-        'purple': '#AA66AA'
-    }
+    if color:
+        color = "#" + color
+    else:
+        # Company pride
+        s4_colors = {
+            'indigo': '#4E54A4',
+            'green': '#44B5AD',
+            'orange': '#F37970',
+            'purple': '#AA66AA'
+        }
 
-    # Make us pretty!
-    color = random.choice(s4_colors.values())
+        # Make us pretty!
+        color = random.choice(s4_colors.values())
 
     return {
         'color': color,
-        'taunt': 'SsSsSsS',
+        'taunt': '404 - Taunt not found',
         'head_url': head_url,
-        'name': 'battlesnake-python'
+        'name': 'DNA Snake'
     }
 
 
