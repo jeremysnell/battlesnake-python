@@ -1,20 +1,16 @@
 from pypaths import astar
 
-from app.constants import BASE_COST, TRAPPED_BODY_ADJACENT_COST, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
-    TRAPPED_WALL_ADJACENT_COST, TRAP_SIZE_MULTIPLIER, TRAIT_FORESIGHTED, BODY_DANGER_COST
+from app.constants import BASE_COST, TRAPPED_BODY_ADJACENT_DISCOUNT, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
+    TRAPPED_WALL_ADJACENT_DISCOUNT, TRAP_SIZE_MULTIPLIER, FORESIGHTED, BODY_DANGER_COST, MAX_COST_CONSIDERED_SAFE
 from app.utility import point_to_coord, get_coord_neighbors, get_absolute_distance, is_adjacent_to_coords, \
     get_adjacent_coords, is_adjacent_to_coord
 
 
 class PathFinder:
-    def __init__(self, data, snake_traits, my_coords, my_head, my_length):
+    def __init__(self, data, me):
         self.data = data
-        self.snake_traits = snake_traits
-        self.my_coords = my_coords
-        self.my_head = my_head
-        self.my_length = my_length
-        self.my_id = data['you']['id']
-        self.my_body = my_coords[1:-1] if my_length > 2 else []
+        self.me = me
+
         self.map_size = (data['width'], data['height'])
 
         self._finder = self._get_astar_pathfinder()
@@ -64,9 +60,9 @@ class PathFinder:
         # Don't move into any coords where a snake body is,
         # unless we're far enough away that it won't be there when we get there
         fatal_coords = [coord for snake_body in snake_bodies for coord in snake_body
-                        if TRAIT_FORESIGHTED not in self.snake_traits
+                        if self.me.has_trait(FORESIGHTED)
                         or len(snake_body) - (snake_body.index(coord) + 1) >=
-                        min(get_absolute_distance(self.my_head, coord), len(snake_body), foresight_distance)]
+                        min(get_absolute_distance(self.me.head, coord), len(snake_body), foresight_distance)]
 
         return fatal_coords
 
@@ -76,26 +72,25 @@ class PathFinder:
 
     # Node cost calculation, which will make more dangerous paths cost more
     def get_cost(self, node1, node2):
-        cost = BASE_COST
+        cost = self.me.dna(BASE_COST)
 
         # Pathing near walls costs more, unless we're trapped, then it's actually better
-        if node2[0] == 0 or node2[0] == self.map_size[0] - 1:
-            cost += TRAPPED_WALL_ADJACENT_COST if self.im_trapped else WALL_DANGER_COST
-        if node2[1] == 0 or node2[1] == self.map_size[1] - 1:
-            cost += TRAPPED_WALL_ADJACENT_COST if self.im_trapped else WALL_DANGER_COST
+        adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
+        cost += adjacent_wall_count * (-self.me.dna(TRAPPED_WALL_ADJACENT_DISCOUNT) if self.im_trapped else self.me.dna(WALL_DANGER_COST))
 
         # Pathing near other snake's bodies is more expensive, unless we're trapped
-        cost += len(get_adjacent_coords(node2, self.fatal_coords)) * (TRAPPED_BODY_ADJACENT_COST if self.im_trapped else BODY_DANGER_COST)
+        cost += len(get_adjacent_coords(node2, self.fatal_coords)) * (-self.me.dna(TRAPPED_BODY_ADJACENT_DISCOUNT)
+                                                                      if self.im_trapped else self.me.dna(BODY_DANGER_COST))
 
         # Pathing into squares adjacent to a bigger snake head costs much more
         if node2 in self.head_danger_coords:
-            cost += HEAD_DANGER_COST
+            cost += self.me.dna(HEAD_DANGER_COST)
 
         # Pathing into a small area costs more, based on how small it is compared to our length
         # If we're already trapped, and no moves make us "more" trapped, ignore the danger
         if (not self.im_trapped or len(set(self.coord_to_trap_danger.values())) > 1) \
                 and node2 in self.coord_to_trap_danger.keys():
-            cost += (1 - (self.coord_to_trap_danger[node2] / float(self.my_length * TRAP_SIZE_MULTIPLIER))) * TRAP_DANGER_COST
+            cost += (1 - (self.coord_to_trap_danger[node2] / float(self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER)))) * self.me.dna(TRAP_DANGER_COST)
 
         return max(cost, 1)
 
@@ -118,17 +113,17 @@ class PathFinder:
 
         # Avoid squares adjacent to enemy snake heads, since they're dangerous
         # Smaller snakes that we're directly adjacent to are safe, though
-        other_snake_heads = [(point_to_coord(snake['body']['data'][0]), snake['length'] < self.my_length)
-                            for snake in self.data['snakes']['data'] if snake['id'] != self.my_id]
+        other_snake_heads = [(point_to_coord(snake['body']['data'][0]), snake['length'] < self.me.length)
+                            for snake in self.data['snakes']['data'] if snake['id'] != self.me.id]
         self.head_danger_coords = [neighbor for head, smaller in other_snake_heads for neighbor in
-                                   get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.my_head, neighbor))]
+                                   get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.me.head, neighbor))]
 
         # Get valid moves
-        self.valid_moves = self.get_valid_neighbors(self.my_head)
+        self.valid_moves = self.get_valid_neighbors(self.me.head)
 
         # Find the size of the area we'd be moving into, for each valid move
         self.fill_coords = dict(
-            [(move_coord, self.flood_fill(move_coord, self.my_length * TRAP_SIZE_MULTIPLIER)) for move_coord in
+            [(move_coord, self.flood_fill(move_coord, self.me.length * self.me.dna(TRAP_SIZE_MULTIPLIER))) for move_coord in
              self.valid_moves])
 
         # If the area is smaller than our size (with multiplier), it's dangerous
@@ -161,3 +156,6 @@ class PathFinder:
     # Returns the shortest paths to each point, using the astar algorithm
     def get_paths_to_points(self, source_coord, target_points):
         return self.get_paths_to_coords(source_coord, [point_to_coord(point) for point in target_points])
+
+    def path_is_safe(self, path):
+        return path[0] < self.me.dna(MAX_COST_CONSIDERED_SAFE)
