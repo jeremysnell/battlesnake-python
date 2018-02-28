@@ -52,11 +52,11 @@ def move(traits=''):
 
     # Eat if we're starving
     if best_food_path and my_health < STARVING_THRESHOLD:
-        next_path = (None, best_food_path)
+        next_path = best_food_path
 
     # We're trapped, so let's pack in as tight as we can
     if pathfinder.im_trapped:
-        next_path = pathfinder.best_path_fill(my_head, my_length)
+        next_path = pathfinder.get_best_path_fill(my_head, my_length)
 
     # Eat food if it's close or we're peckish
     if best_food_path and ((TRAIT_OPPORTUNISTIC in snake_traits and best_food_path[0] <= MAX_OPPORTUNISTIC_EAT_COST)

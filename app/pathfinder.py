@@ -17,30 +17,6 @@ class PathFinder:
         self.my_body = my_coords[1:-1] if my_length > 2 else []
         self.map_size = (data['width'], data['height'])
 
-        self.fatal_coords = self._get_fatal_coords()
-
-        # Avoid squares adjacent to enemy snake heads, since they're dangerous
-        # Smaller snakes that we're directly adjacent to are safe, though
-        self.snake_heads = [(point_to_coord(snake['body']['data'][0]), snake['length'] < self.my_length)
-                                   for snake in self.data['snakes']['data']]
-        self.head_danger_coords = [neighbor for head, smaller in self.snake_heads for neighbor in
-                                   get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.my_head, neighbor))]
-
-        # Get valid moves
-        self.valid_moves = self.get_valid_neighbors(self.my_head)
-
-        # Find the size of the area we'd be moving into, for each valid move
-        self.fill_coords = dict(
-            [(move_coord, self.flood_fill(move_coord, self.my_length * TRAP_SIZE_MULTIPLIER)) for move_coord in
-             self.valid_moves])
-
-        # If the area is smaller than our size (with multiplier), it's dangerous
-        self.coord_to_trap_danger = dict(
-            [(coord, len(fill)) for coord, fill in self.fill_coords.items() if fill])
-
-        # We're enclosed in an area smaller than our body
-        self.im_trapped = len(self.coord_to_trap_danger) == len(self.fill_coords)
-
         self._finder = self._get_astar_pathfinder()
 
     # Determines the size of the safe area around a coord
@@ -62,7 +38,7 @@ class PathFinder:
         return explored
 
     # Finds the best path to fill an area
-    def best_path_fill(self, start_coord, max_path_length=None):
+    def get_best_path_fill(self, start_coord, max_path_length=None):
         def recurse_path(coord, path):
             current_path = list(path)
             current_path.append(coord)
@@ -78,9 +54,7 @@ class PathFinder:
                     return new_path
                 paths.append(new_path)
             return max(paths, key=lambda x: len(x))
-
-
-        return recurse_path(start_coord, [])
+        return 0, recurse_path(start_coord, [])  # Path format is (cost, [path])
 
     def _get_fatal_coords(self, foresight_distance=0):
         # Avoid squares that will kill us
@@ -140,6 +114,30 @@ class PathFinder:
         return valid_neighbors
 
     def _get_astar_pathfinder(self):
+        self.fatal_coords = self._get_fatal_coords()
+
+        # Avoid squares adjacent to enemy snake heads, since they're dangerous
+        # Smaller snakes that we're directly adjacent to are safe, though
+        other_snake_heads = [(point_to_coord(snake['body']['data'][0]), snake['length'] < self.my_length)
+                            for snake in self.data['snakes']['data'] if snake['id'] != self.my_id]
+        self.head_danger_coords = [neighbor for head, smaller in other_snake_heads for neighbor in
+                                   get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.my_head, neighbor))]
+
+        # Get valid moves
+        self.valid_moves = self.get_valid_neighbors(self.my_head)
+
+        # Find the size of the area we'd be moving into, for each valid move
+        self.fill_coords = dict(
+            [(move_coord, self.flood_fill(move_coord, self.my_length * TRAP_SIZE_MULTIPLIER)) for move_coord in
+             self.valid_moves])
+
+        # If the area is smaller than our size (with multiplier), it's dangerous
+        self.coord_to_trap_danger = dict(
+            [(coord, len(fill)) for coord, fill in self.fill_coords.items() if fill])
+
+        # We're enclosed in an area smaller than our body
+        self.im_trapped = len(self.coord_to_trap_danger) == len(self.fill_coords)
+
         # Used by the astar algorithm to evaluate node costs
         def cost_func(node1, node2):
             return self.get_cost(node1, node2)
