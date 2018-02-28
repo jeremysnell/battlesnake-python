@@ -9,7 +9,6 @@ from app.snake import PlayerSnake
 from app.utility import point_to_coord, get_coord_neighbors, sub_coords
 
 
-# TODO: Get response time down!!!
 # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
 
 # TODO: Weight based on relative size of flood fill areas?
