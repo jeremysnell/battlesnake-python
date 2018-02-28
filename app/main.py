@@ -2,69 +2,37 @@ import random
 import bottle
 import os
 
-from app.constants import OPPORTUNISTIC, MAX_OPPORTUNISTIC_EAT_COST, PECKISH_THRESHOLD, \
-    STARVING_THRESHOLD, AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, DEFAULT_DNA, COOPERATIVE
+from app.constants import OPPORTUNISTIC, MAX_OPPORTUNISTIC_EAT_COST, \
+    AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, COOPERATIVE
 from app.pathfinder import PathFinder
+from app.snake import PlayerSnake
 from app.utility import point_to_coord, get_coord_neighbors, sub_coords
 
 
-class Snake:
-    def __init__(self, data):
-        # The snake's data
-        self.id = data['id']
-        self.name = data['name']
-        self.length = data['length']
-        self.health = data['health']
-        self.coords = [point_to_coord(point) for point in data['body']['data']]
-        self.head = self.coords[0]
-        self.tail = self.coords[-1]
-
-
-class PlayerSnake(Snake):
-    def __init__(self, data, dna_string, traits_string):
-        # Get the basic snake info
-        Snake.__init__(self, data['you'])
-
-        # If no DNA is passed in, use the default values
-        self._dna = dna_string.split('-') if dna_string else DEFAULT_DNA
-        self._traits = traits_string.split('-')
-
-        self.is_peckish = self.health < self.dna(PECKISH_THRESHOLD)
-        self.is_starving = self.health < self.dna(STARVING_THRESHOLD)
-
-    def has_trait(self, trait):
-        return trait in self._traits
-
-    # Get a particular piece of dna, and convert to an int, if possible
-    def dna(self, index):
-        try:
-            return int(self._dna[index])
-        except ValueError:
-            return self._dna[index]
+# TODO: Get response time down!!!
+# TODO: Weight based on relative size of flood fill areas?
+# TODO: Weight so open space is better than corridors?
+# TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
+# TODO: Add food distance calcs?
+# TODO: Add trait ordering? (agg-glu is diff than glu-agg)
+# TODO: If there's another, bigger head in a small space with you, BAD!
+# TODO: Other's tails are very dangerous if they're about to eat
+# TODO: Should being next to yourself always cost less?
+# TODO: If our tail is in an area, it's safer
+# TODO: Area danger based on fillable space, not total space
+# TODO: Go after food we're closer to than any other snake first
+# TODO: Cut off snakes, if nearby and aggressive
+# TODO: Foresight when trapped
 
 
 # Used by the /move endpoint to get the next move
 def get_move(dna, traits):
-    # TODO: Weight based on relative size of flood fill areas?
-    # TODO: Weight so open space is better than corridors?
-    # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
-    # TODO: Add food distance calcs?
-    # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
-    # TODO: Get DNA working
-    # TODO: If there's another, bigger head in a small space with you, BAD!
-    # TODO: Other's tails are very dangerous if they're about to eat
-    # TODO: Should being next to yourself always cost less?safer
-    # TODO: If our tail is in an area, it's
-    # TODO: Area danger based on fillable space, not total space
-    # TODO: Go after food we're closer to than any other snake first
-    # TODO: Cut off snakes, if nearby and aggressive
-    # TODO: Foresight when trapped
-
     data = bottle.request.json
 
     # Get data about our snake
     me = PlayerSnake(data, dna, traits)
 
+    # We'll use this for all pathing
     pathfinder = PathFinder(data, me)
 
     next_path = []
@@ -72,7 +40,7 @@ def get_move(dna, traits):
     # Find paths to all possible food, that we can reach in time
     food_paths = [path for path in pathfinder.get_paths_to_points(me.head, data['food']['data']) if len(path[1]) <= me.health]
 
-    # Let's follow the cheapest path
+    # Let's get the cheapest path to food
     best_food_path = min(food_paths, key=lambda x: x[0]) if food_paths else None
 
     # Eat if we're starving
