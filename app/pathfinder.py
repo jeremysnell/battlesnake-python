@@ -14,6 +14,9 @@ class PathFinder:
 
         self._finder = self._get_astar_pathfinder()
 
+        # Used to cache node costs, so we don't recalc every time
+        self.node_costs = {}
+
     # Determines the size of the safe area around a coord
     def flood_fill(self, start_coord, max_fill_size=None):
         explored = []
@@ -70,9 +73,14 @@ class PathFinder:
     # TODO: Not sure this is working the way I think. Node 1 and Node 2
     # Node cost calculation, which will make more dangerous paths cost more
     def get_cost(self, node1, node2):
+        # See whether we've already performed the cost calc for this node
+        cached_cost = self.node_costs.get(node2)
+        if cached_cost:
+            return cached_cost
+
         cost = 0
 
-        # Pathing near walls costs more, unless we're trapped, then it's actually better
+        # Pathing near walls costs more
         adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
         cost += adjacent_wall_count * self.me.dna(WALL_DANGER_COST)
 
@@ -89,7 +97,13 @@ class PathFinder:
                 and node2 in self.coord_to_trap_danger.keys():
             cost += (1 - (self.coord_to_trap_danger[node2] / float(self.me.length))) * self.me.dna(TRAP_DANGER_COST)
 
-        return max(cost, self.me.dna(BASE_COST))
+        # Make sure the cost is always at least the base cost
+        node_cost = max(cost, self.me.dna(BASE_COST))
+
+        # Add to cache
+        self.node_costs[node2] = node_cost
+
+        return node_cost
 
     # Find non-fatal node neighbors
     def get_valid_neighbors(self, coord):
