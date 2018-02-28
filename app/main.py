@@ -157,21 +157,21 @@ def move(dna='', traits=''):
 @bottle.route('/')
 @bottle.route('/<traits>/')
 @bottle.route('/<dna>/<traits>/')
-def static(traits=''):
+def static(dna='', traits=''):
     return "the server is running"
 
 
 @bottle.route('/static/<path:path>')
 @bottle.route('/<traits>/static/<path:path>')
 @bottle.route('/<dna>/<traits>/static/<path:path>')
-def static(path, traits=''):
+def static(path, dna='', traits=''):
     return bottle.static_file(path, root='static/')
 
 
 @bottle.post('/start')
 @bottle.post('/<traits>/start')
 @bottle.post('/<dna>/<traits>/start')
-def start(traits=''):
+def start(dna='', traits=''):
     head_url = '%s://%s/static/head.png' % (
         bottle.request.urlparts.scheme,
         bottle.request.urlparts.netloc
