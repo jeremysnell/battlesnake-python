@@ -3,16 +3,16 @@ import bottle
 import os
 
 from app.constants import OPPORTUNISTIC, MAX_OPPORTUNISTIC_EAT_COST, \
-    AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, COOPERATIVE
+    AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, COOPERATIVE, HEAD_DANGER_COST
 from app.pathfinder import PathFinder
 from app.snake import PlayerSnake
 from app.utility import point_to_coord, get_coord_neighbors, sub_coords
 
 
 # TODO: Get response time down!!!
-# TODO: Weight based on relative size of flood fill areas?
-# TODO: Weight so open space is better than corridors?
 # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
+
+# TODO: Weight based on relative size of flood fill areas?
 # TODO: Add food distance calcs?
 # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
 # TODO: If there's another, bigger head in a small space with you, BAD!
@@ -49,7 +49,10 @@ def get_move(dna, traits):
 
     # We're trapped, so let's pack in as tight as we can
     if pathfinder.is_trapped:
-        next_path = pathfinder.get_best_path_fill(me.head, me.length)
+        fill_path = pathfinder.get_best_path_fill(me.head, me.length)
+        if fill_path:
+            # Format as a path
+            next_path = (None, fill_path)
 
     # Eat food if it's close or we're peckish
     if best_food_path and ((me.has_trait(OPPORTUNISTIC) and best_food_path[0] <= me.dna(MAX_OPPORTUNISTIC_EAT_COST))
@@ -77,7 +80,8 @@ def get_move(dna, traits):
         attack_paths = pathfinder.get_paths_to_coords(me.head, enemy_snake_targets)
         best_attack_path = min(attack_paths, key=lambda x: x[0]) if attack_paths else None
 
-        if best_attack_path and pathfinder.path_is_safe(best_attack_path):
+        # Subtract one head danger from cost, since we're trying to path adjacent to a head
+        if best_attack_path and pathfinder.path_is_safe(best_attack_path, me.dna(HEAD_DANGER_COST)):
             next_path = best_attack_path
 
     # Try and chase tail
