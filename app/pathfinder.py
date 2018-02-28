@@ -56,7 +56,7 @@ class PathFinder:
         # unless we're far enough away that it won't be there when we get there
         # Our own head isn't fatal, since we can never move into it
         fatal_coords = [coord for snake_body in self.snake_bodies for coord in snake_body
-                        if (coord not in [self.me.head, self.me.tail] or coord in self.me.body)
+                        if (coord != self.me.tail or coord in self.me.body)
                         and (not self.me.has_trait(FORESIGHTED)
                         or len(snake_body) - (snake_body.index(coord) + 1) >=
                         min(get_absolute_distance(self.me.head, coord), len(snake_body), foresight_distance))]
