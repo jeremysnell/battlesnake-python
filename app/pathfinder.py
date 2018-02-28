@@ -66,14 +66,23 @@ class PathFinder:
         def recurse_path(coord, path):
             current_path = list(path)
             current_path.append(coord)
+            if max_path_length and len(current_path) >= max_path_length:
+                return current_path
             neighbors = [neighbor for neighbor in self.get_valid_neighbors(coord) if neighbor not in current_path]
-            if neighbors and (not max_path_length or len(current_path) < max_path_length):
-                return max([recurse_path(neighbor, current_path) for neighbor in neighbors], key=lambda x: len(x))
-            return current_path
+            if not neighbors:
+                return current_path
+            paths = []
+            for neighbor in neighbors:
+                new_path = recurse_path(neighbor, current_path)
+                if max_path_length and len(new_path) >= max_path_length:
+                    return new_path
+                paths.append(new_path)
+            return max(paths, key=lambda x: len(x))
+
 
         return recurse_path(start_coord, [])
 
-    def _get_fatal_coords(self):
+    def _get_fatal_coords(self, foresight_distance=0):
         # Avoid squares that will kill us
         snake_bodies = [[point_to_coord(point) for point in snake['body']['data']]
                         for snake in self.data['snakes']['data']]
@@ -83,9 +92,13 @@ class PathFinder:
         fatal_coords = [coord for snake_body in snake_bodies for coord in snake_body
                         if TRAIT_FORESIGHTED not in self.snake_traits
                         or len(snake_body) - (snake_body.index(coord) + 1) >=
-                        min(get_absolute_distance(self.my_head, coord), len(snake_body))]
+                        min(get_absolute_distance(self.my_head, coord), len(snake_body), foresight_distance)]
 
         return fatal_coords
+
+    # How far ahead we want to try and predict tail positions
+    def set_foresight(self, foresight_distance):
+        self.fatal_coords = self._get_fatal_coords(foresight_distance)
 
     # Node cost calculation, which will make more dangerous paths cost more
     def get_cost(self, node1, node2):
