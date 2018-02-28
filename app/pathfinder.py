@@ -1,9 +1,8 @@
 from pypaths import astar
 
-from app.constants import BASE_COST, TRAPPED_BODY_ADJACENT_DISCOUNT, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
-    TRAPPED_WALL_ADJACENT_DISCOUNT, TRAP_SIZE_MULTIPLIER, FORESIGHTED, BODY_DANGER_COST, MAX_COST_CONSIDERED_SAFE
-from app.utility import point_to_coord, get_coord_neighbors, get_absolute_distance, is_adjacent_to_coords, \
-    get_adjacent_coords, is_adjacent_to_coord
+from app.constants import BASE_COST, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
+    FORESIGHTED, BODY_DANGER_COST, MAX_COST_CONSIDERED_SAFE
+from app.utility import point_to_coord, get_coord_neighbors, get_absolute_distance, is_adjacent_to_coord
 
 
 class PathFinder:
@@ -78,7 +77,7 @@ class PathFinder:
         cost += adjacent_wall_count * self.me.dna(WALL_DANGER_COST)
 
         # Pathing near other snake's bodies is more expensive, based on how close to the head we are
-        cost += sum([danger * 5 for coord, danger in self.body_danger if is_adjacent_to_coord(node2, coord)])
+        cost += sum([danger * self.me.dna(BODY_DANGER_COST) for coord, danger in self.body_danger if is_adjacent_to_coord(node2, coord)])
 
         # Pathing into squares adjacent to a snake head costs much more
         if node2 in self.head_danger_coords:
