@@ -19,7 +19,10 @@ class PathFinder:
     def flood_fill(self, start_coord, max_fill_size=None):
         explored = []
         queue = [start_coord]
-        while queue and (max_fill_size is None or len(explored) < max_fill_size):
+        while queue:
+            if max_fill_size is not None and len(explored) >= max_fill_size:
+                return None
+
             next_coord = queue.pop(0)
             explored.append(next_coord)
 
@@ -67,6 +70,7 @@ class PathFinder:
     def set_foresight(self, foresight_distance):
         self.fatal_coords = self._get_fatal_coords(foresight_distance)
 
+    # TODO: Not sure this is working the way I think. Node 1 and Node 2
     # Node cost calculation, which will make more dangerous paths cost more
     def get_cost(self, node1, node2):
         cost = self.me.dna(BASE_COST)
