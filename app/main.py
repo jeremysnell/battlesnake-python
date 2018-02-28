@@ -3,7 +3,7 @@ import bottle
 import os
 
 from app.constants import OPPORTUNISTIC, MAX_OPPORTUNISTIC_EAT_COST, PECKISH_THRESHOLD, \
-    STARVING_THRESHOLD, AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, DEFAULT_DNA
+    STARVING_THRESHOLD, AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, DEFAULT_DNA, COOPERATIVE
 from app.pathfinder import PathFinder
 from app.utility import point_to_coord, get_coord_neighbors, sub_coords
 
@@ -12,6 +12,7 @@ class Snake:
     def __init__(self, data):
         # The snake's data
         self.id = data['id']
+        self.name = data['name']
         self.length = data['length']
         self.health = data['health']
         self.coords = [point_to_coord(point) for point in data['body']['data']]
@@ -87,17 +88,6 @@ def get_move(dna, traits):
                            or (me.is_peckish and pathfinder.path_is_safe(best_food_path))):
         next_path = best_food_path
 
-    # The bigger snakes eat the little ones
-    # Path to a small snake's head neighbor
-    if not next_path and me.has_trait(AGGRESSIVE):
-        smaller_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data'] if snake['length'] < me.length]
-        smaller_snake_targets = [neighbor for head in smaller_snake_heads for neighbor in get_coord_neighbors(head)]
-        attack_paths = pathfinder.get_paths_to_coords(me.head, smaller_snake_targets)
-        best_attack_path = min(attack_paths, key=lambda x: x[0]) if attack_paths else None
-
-        if best_attack_path and pathfinder.path_is_safe(best_attack_path):
-            next_path = best_attack_path
-
     # Try and get longer
     if not next_path and me.has_trait(GLUTTONOUS):
 
@@ -106,6 +96,21 @@ def get_move(dna, traits):
 
         if best_food_path and not im_longest and pathfinder.path_is_safe(best_food_path):
             next_path = best_food_path
+
+    # The bigger snakes eat the little ones
+    # Path to a other snakes' head neighbor squares
+    if not next_path and me.has_trait(AGGRESSIVE):
+        # We'll use the name prefix to tell who's friendly
+        friendly_snakes = [snake for snake in data['snakes']['data']
+                           if snake['name'].split(' ')[0] == me.name.split(' ')[0]]
+        enemy_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data']
+                             if (me.has_trait(COOPERATIVE) and snake not in friendly_snakes) or snake['id'] != data['you']['id']]
+        enemy_snake_targets = [neighbor for head in enemy_snake_heads for neighbor in get_coord_neighbors(head)]
+        attack_paths = pathfinder.get_paths_to_coords(me.head, enemy_snake_targets)
+        best_attack_path = min(attack_paths, key=lambda x: x[0]) if attack_paths else None
+
+        if best_attack_path and pathfinder.path_is_safe(best_attack_path):
+            next_path = best_attack_path
 
     # Try and chase tail
     if not next_path and me.has_trait(INSECURE):
