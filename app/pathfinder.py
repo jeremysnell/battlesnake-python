@@ -162,5 +162,5 @@ class PathFinder:
     # Is this path safe enough for us to use?
     # A max of 0 means all paths are safe
     def path_is_safe(self, path, max_modifier=0):
-        max_cost = self.me.dna(MAX_COST_CONSIDERED_SAFE) + max_modifier
-        return True if max_cost == 0 else path[0] <= max_cost
+        max_cost = self.me.dna(MAX_COST_CONSIDERED_SAFE)
+        return True if max_cost == 0 else path[0] <= max_cost + max_modifier

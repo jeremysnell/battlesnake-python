@@ -94,10 +94,12 @@ def get_move(dna, traits):
     # Move to the safest adjacent square
     if not next_path:
         valid_move_costs = [(pathfinder.get_cost(me.head, coord), coord) for coord in pathfinder.valid_moves]
-        next_coord = min(valid_move_costs, key=lambda x: x[0])[1] if valid_move_costs else None
 
-        # Uh oh, we found no valid moves. Randomly move to our death!
-        if not next_coord:
+        if valid_move_costs:
+            lowest_cost = min(valid_move_costs, key=lambda x: x[0])[0] if valid_move_costs else None
+            next_coord = random.choice([move for cost, move in valid_move_costs if cost == lowest_cost])
+        else:
+            # Uh oh, we found no valid moves. Randomly move to our death!
             return {
                 'move': random.choice(DIRECTION_MAP.values()),
                 'taunt': 'Uh oh'
