@@ -132,10 +132,11 @@ def get_move(dna, traits):
 def move(dna='', traits='', color=''):
     return get_move(dna, traits)
 
+
 @bottle.route('/')
 @bottle.route('/<traits>/')
 @bottle.route('/<dna>/<traits>/')
-@bottle.post('/<color>/<dna>/<traits>/')
+@bottle.route('/<color>/<dna>/<traits>/')
 def static(dna='', traits='', color=''):
     return "the server is running"
 
@@ -143,7 +144,7 @@ def static(dna='', traits='', color=''):
 @bottle.route('/static/<path:path>')
 @bottle.route('/<traits>/static/<path:path>')
 @bottle.route('/<dna>/<traits>/static/<path:path>')
-@bottle.post('/<color>/<dna>/<traits>/static/<path:path>')
+@bottle.route('/<color>/<dna>/<traits>/static/<path:path>')
 def static(path, dna='', traits='', color=''):
     return bottle.static_file(path, root='static/')
 
