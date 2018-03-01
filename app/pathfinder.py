@@ -18,20 +18,21 @@ class PathFinder:
         self._finder = self._get_astar_pathfinder()
 
     # Determines the size of the safe area around a coord
-    def flood_fill(self, start_coord, max_fill_size=None):
+    def flood_fill(self, start_coord, max_fill_size=None, max_depth=None):
         explored = []
-        queue = [start_coord]
+        queue = [(start_coord, 0)]
         while queue:
             if max_fill_size is not None and len(explored) >= max_fill_size:
-                return None
+                return explored
 
-            next_coord = queue.pop(0)
-            explored.append(next_coord)
+            coord_depth = queue.pop(0)
+            explored.append(coord_depth)
 
-            neighbors = self.get_valid_neighbors(next_coord)
-            for neighbor in neighbors:
-                if neighbor not in queue and neighbor not in explored:
-                    queue.append(neighbor)
+            if max_depth is None or coord_depth[1] < max_depth:
+                neighbors = self.get_valid_neighbors(coord_depth[0])
+                for neighbor in neighbors:
+                    if neighbor not in queue and neighbor not in explored:
+                        queue.append((neighbor, coord_depth[1] + 1))
 
         return explored
 
@@ -99,9 +100,12 @@ class PathFinder:
                 # Why would you do this???
                 cost *= 10
 
+        # Squares nearer to other snakes heads are more dangerous
+        cost += sum([1 / float(danger) for coord, danger in self.head_danger_fill if coord == node2]) * self.me.dna(HEAD_DANGER_COST)
+
         # Pathing into squares adjacent to a snake head costs much more
-        if node2 in self.head_danger_coords:
-            cost += self.me.dna(HEAD_DANGER_COST)
+        #if node2 in self.head_danger_coords:
+        #    cost += self.me.dna(HEAD_DANGER_COST)
 
         # Pathing into a small area costs more, based on how small it is compared to our length
         # If we're already trapped, and no moves make us "more" trapped, ignore the danger
@@ -147,6 +151,9 @@ class PathFinder:
         self.head_danger_coords = [neighbor for head, smaller in other_snake_heads for neighbor in
                                    get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.me.head, neighbor))]
 
+        # Get danger based on how close coords are to a snake head
+        self.head_danger_fill = [fill for head in other_snake_heads for fill in self.flood_fill(head[0], None, 3)]
+
         # Get valid moves
         self.valid_moves = self.get_valid_neighbors(self.me.head)
 
@@ -156,7 +163,7 @@ class PathFinder:
 
         # If the area is smaller than our size (with multiplier), it's dangerous
         self.coord_to_trap_danger = dict(
-            [(coord, len(fill)) for coord, fill in fill_coords.items() if fill])
+            [(coord, len(fill)) for coord, fill in fill_coords.items() if fill < self.me.length])
 
         # We're enclosed in an area smaller than our body
         self.is_trapped = len(self.coord_to_trap_danger) == len(fill_coords)

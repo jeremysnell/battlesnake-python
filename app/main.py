@@ -10,21 +10,19 @@ from app.utility import point_to_coord, get_coord_neighbors, sub_coords, get_abs
 
 
 # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
-# TODO: If we're trapped, path to any snake tail
 
-# TODO: Direction we're moving along body, away/to head?
+# TODO: Stay away from snake heads?
+# TODO: Cut off snakes, if nearby and aggressive
 # TODO: Weight based on relative size of flood fill areas?
 # TODO: Add food distance calcs?
 # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
 # TODO: If there's another, bigger head in a small space with you, BAD!
-# TODO: Other's tails are very dangerous if they're about to eat
 # TODO: Should being next to yourself always cost less?
 # TODO: If our tail is in an area, it's safer
 # TODO: Area danger based on fillable space, not total space
 # TODO: Go after food we're closer to than any other snake first
-# TODO: Cut off snakes, if nearby and aggressive
-# TODO: Foresight when trapped
 # TODO: Being on the outside edge is bad
+# TODO: Direction we're moving along body, away/to head?
 
 
 # Used by the /move endpoint to get the next move
