@@ -52,6 +52,7 @@ class PathFinder:
                     return new_path
                 paths.append(new_path)
             return max(paths, key=lambda x: len(x))
+
         return recurse_path(start_coord, [])
 
     def _get_fatal_coords(self, foresight_distance=0):
@@ -80,12 +81,20 @@ class PathFinder:
 
         cost = 0
 
-        # Pathing near walls costs more
-        adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
-        cost += adjacent_wall_count * self.me.dna(WALL_DANGER_COST)
+        valid_node_neighbor_count = len(self.get_valid_neighbors(node2))
 
-        # Pathing near other snake's bodies is more expensive, based on how close to the head we are
-        cost += sum([danger * self.me.dna(BODY_DANGER_COST) for coord, danger in self.body_danger if is_adjacent_to_coord(node2, coord)])
+        # Are we limiting our future moves?
+        if valid_node_neighbor_count < 3:
+            # Pathing near walls costs more
+            adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
+            cost += adjacent_wall_count * self.me.dna(WALL_DANGER_COST)
+
+            # Pathing near other snake's bodies is more expensive, based on how close to the head we are
+            cost += sum([danger * self.me.dna(BODY_DANGER_COST) for coord, danger in self.body_danger if is_adjacent_to_coord(node2, coord)])
+
+            # Moving into a corridor is BAD NEWS!
+            if valid_node_neighbor_count == 1:
+                cost *= 2
 
         # Pathing into squares adjacent to a snake head costs much more
         if node2 in self.head_danger_coords:

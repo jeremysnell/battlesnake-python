@@ -10,7 +10,9 @@ from app.utility import point_to_coord, get_coord_neighbors, sub_coords
 
 
 # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
+# TODO: If we're trapped, path to any snake tail
 
+# TODO: Direction we're moving along body, away/to head?
 # TODO: Weight based on relative size of flood fill areas?
 # TODO: Add food distance calcs?
 # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
@@ -22,6 +24,7 @@ from app.utility import point_to_coord, get_coord_neighbors, sub_coords
 # TODO: Go after food we're closer to than any other snake first
 # TODO: Cut off snakes, if nearby and aggressive
 # TODO: Foresight when trapped
+# TODO: Being on the outside edge is bad
 
 
 # Used by the /move endpoint to get the next move
@@ -46,12 +49,24 @@ def get_move(dna, traits):
     if best_food_path and me.is_starving:
         next_path = best_food_path
 
-    # We're trapped, so let's pack in as tight as we can
+    # We're trapped, we better switch up our approach
     if pathfinder.is_trapped:
-        fill_path = pathfinder.get_best_path_fill(me.head, me.length)
-        if fill_path:
-            # Format as a path
-            next_path = (None, fill_path)
+        tail_path = pathfinder.get_path_to_coord(me.head, me.tail)
+
+        # Try and follow our tail to get out
+        if tail_path:
+            next_path = tail_path
+        else:
+            # Ok, let's try and follow any tail we can find
+            other_tails = [point_to_coord(snake['body']['data'][-1]) for snake in data['snakes']['data']
+                           if snake['id'] != data['you']['id']]
+            other_tail_neighbors = [neighbor for tail in other_tails for neighbor in get_coord_neighbors(tail)]
+            tail_paths = pathfinder.get_paths_to_coords(me.head, other_tail_neighbors)
+
+            best_tail_path = min(tail_paths, key=lambda x: x[0]) if tail_paths else None
+
+            if best_tail_path:
+                next_path = best_tail_path
 
     # Eat food if it's close or we're peckish
     if best_food_path and ((me.has_trait(OPPORTUNISTIC) and best_food_path[0] <= me.dna(MAX_OPPORTUNISTIC_EAT_COST))
