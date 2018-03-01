@@ -12,7 +12,6 @@ OPPORTUNISTIC = 'opp'
 AGGRESSIVE = 'agg'
 GLUTTONOUS = 'glu'
 INSECURE = 'ins'
-FORESIGHTED = 'for'
 COOPERATIVE = 'coo'
 
 # DNA

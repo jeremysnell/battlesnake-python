@@ -6,7 +6,7 @@ from app.constants import OPPORTUNISTIC, MAX_OPPORTUNISTIC_EAT_COST, \
     AGGRESSIVE, GLUTTONOUS, INSECURE, DIRECTION_MAP, COOPERATIVE, HEAD_DANGER_COST
 from app.pathfinder import PathFinder
 from app.snake import PlayerSnake
-from app.utility import point_to_coord, get_coord_neighbors, sub_coords
+from app.utility import point_to_coord, get_coord_neighbors, sub_coords, get_absolute_distance
 
 
 # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
@@ -56,7 +56,20 @@ def get_move(dna, traits):
         # Try and follow our tail to get out
         if tail_path:
             next_path = tail_path
-        else:
+
+        if not next_path:
+            # Try and path to the segment of our body closest to our tail,
+            # as long as we have enough room to get there
+            for index, coord in enumerate(reversed(me.body)):
+                body_paths = pathfinder.get_paths_to_coords(me.head, get_coord_neighbors(coord))
+                valid_body_paths = [path for path in body_paths if len(path[1]) >= index + 1]
+
+                # We found a way out! Probably...
+                if valid_body_paths:
+                    next_path = min(valid_body_paths, key=lambda x: x[0])
+                    continue
+
+        if not next_path:
             # Ok, let's try and follow any tail we can find
             other_tails = [point_to_coord(snake['body']['data'][-1]) for snake in data['snakes']['data']
                            if snake['id'] != data['you']['id']]

@@ -1,7 +1,7 @@
 from pypaths import astar
 
 from app.constants import BASE_COST, WALL_DANGER_COST, HEAD_DANGER_COST, TRAP_DANGER_COST, \
-    FORESIGHTED, BODY_DANGER_COST, MAX_COST_CONSIDERED_SAFE
+    BODY_DANGER_COST, MAX_COST_CONSIDERED_SAFE
 from app.utility import point_to_coord, get_coord_neighbors, get_absolute_distance, is_adjacent_to_coord
 
 
@@ -12,10 +12,10 @@ class PathFinder:
 
         self.map_size = (data['width'], data['height'])
 
-        self._finder = self._get_astar_pathfinder()
-
         # Used to cache node costs, so we don't recalc every time
         self.node_costs = {}
+
+        self._finder = self._get_astar_pathfinder()
 
     # Determines the size of the safe area around a coord
     def flood_fill(self, start_coord, max_fill_size=None):
@@ -61,7 +61,7 @@ class PathFinder:
         # Our own head isn't fatal, since we can never move into it
         fatal_coords = [coord for snake_body in self.snake_bodies for coord in snake_body
                         if (coord != self.me.tail or coord in self.me.body)
-                        and (not self.me.has_trait(FORESIGHTED)
+                        and (foresight_distance == 0
                         or len(snake_body) - (snake_body.index(coord) + 1) >=
                         min(get_absolute_distance(self.me.head, coord), len(snake_body), foresight_distance))]
 
@@ -95,6 +95,9 @@ class PathFinder:
             # Moving into a corridor is BAD NEWS!
             if valid_node_neighbor_count == 1:
                 cost *= 2
+            elif valid_node_neighbor_count == 0:
+                # Why would you do this???
+                cost *= 10
 
         # Pathing into squares adjacent to a snake head costs much more
         if node2 in self.head_danger_coords:
