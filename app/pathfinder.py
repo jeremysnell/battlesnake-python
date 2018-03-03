@@ -101,7 +101,7 @@ class PathFinder:
                 cost *= 10
 
         # Squares nearer to other snakes heads are more dangerous
-        cost += sum([1 / float(danger) for coord, danger in self.head_danger_fill if coord == node2]) * self.me.dna(HEAD_DANGER_COST)
+        cost += sum([1 / float(danger or 1) for coord, danger in self.head_danger_fill if coord == node2]) * self.me.dna(HEAD_DANGER_COST)
 
         # Pathing into squares adjacent to a snake head costs much more
         #if node2 in self.head_danger_coords:
