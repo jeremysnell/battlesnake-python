@@ -10,7 +10,7 @@ class PathFinder:
         self.data = data
         self.me = me
 
-        self.map_size = (data['width'], data['height'])
+        self.map_size = (data['board']['width'], data['board']['height'])
 
         # Used to cache node costs, so we don't recalc every time
         self.node_costs = {}
@@ -136,8 +136,8 @@ class PathFinder:
         return valid_neighbors
 
     def _get_astar_pathfinder(self):
-        self.snake_bodies = [[point_to_coord(point) for point in snake['body']['data']]
-                             for snake in self.data['snakes']['data']]
+        self.snake_bodies = [[point_to_coord(point) for point in snake['body']]
+                             for snake in self.data['board']['snakes']]
 
         self.fatal_coords = self._get_fatal_coords()
 
@@ -146,8 +146,8 @@ class PathFinder:
 
         # Avoid squares adjacent to enemy snake heads, since they're dangerous
         # Smaller snakes that we're directly adjacent to are safe, though
-        other_snake_heads = [(point_to_coord(snake['body']['data'][0]), snake['length'] < self.me.length)
-                            for snake in self.data['snakes']['data'] if snake['id'] != self.me.id]
+        other_snake_heads = [(point_to_coord(snake['body'][0]), len(snake['body']) < self.me.length)
+                            for snake in self.data['board']['snakes'] if snake['id'] != self.me.id]
         self.head_danger_coords = [neighbor for head, smaller in other_snake_heads for neighbor in
                                    get_coord_neighbors(head) if not (smaller and is_adjacent_to_coord(self.me.head, neighbor))]
 
@@ -163,7 +163,7 @@ class PathFinder:
 
         # If the area is smaller than our size (with multiplier), it's dangerous
         self.coord_to_trap_danger = dict(
-            [(coord, len(fill)) for coord, fill in fill_coords.items() if fill < self.me.length])
+            [(coord, len(fill)) for coord, fill in fill_coords.items() if len(fill) < self.me.length])
 
         # We're enclosed in an area smaller than our body
         self.is_trapped = len(self.coord_to_trap_danger) == len(fill_coords)

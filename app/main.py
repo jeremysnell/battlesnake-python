@@ -1,3 +1,4 @@
+import json
 import random
 import bottle
 import os
@@ -38,7 +39,7 @@ def get_move(dna, traits):
     next_path = []
 
     # Find paths to all possible food, that we can reach in time
-    food_paths = [path for path in pathfinder.get_paths_to_points(me.head, data['food']['data']) if len(path[1]) <= me.health]
+    food_paths = [path for path in pathfinder.get_paths_to_points(me.head, data['board']['food']) if len(path[1]) <= me.health]
 
     # Let's get the cheapest path to food
     best_food_path = min(food_paths, key=lambda x: x[0]) if food_paths else None
@@ -69,7 +70,7 @@ def get_move(dna, traits):
 
         if not next_path:
             # Ok, let's try and follow any tail we can find
-            other_tails = [point_to_coord(snake['body']['data'][-1]) for snake in data['snakes']['data']
+            other_tails = [point_to_coord(snake['body'][-1]) for snake in data['board']['snakes']
                            if snake['id'] != data['you']['id']]
             other_tail_neighbors = [neighbor for tail in other_tails for neighbor in get_coord_neighbors(tail)]
             tail_paths = pathfinder.get_paths_to_coords(me.head, other_tail_neighbors)
@@ -88,7 +89,7 @@ def get_move(dna, traits):
     if not next_path and me.has_trait(GLUTTONOUS):
 
         # Are we the longest snake?
-        im_longest = me.length > max([snake['length'] for snake in data['snakes']['data'] if snake['id'] != data['you']['id']])
+        im_longest = me.length > max([len(snake['body']) for snake in data['board']['snakes'] if snake['id'] != data['you']['id']])
 
         if best_food_path and not im_longest and pathfinder.path_is_safe(best_food_path):
             next_path = best_food_path
@@ -97,9 +98,9 @@ def get_move(dna, traits):
     # Path to a other snakes' head neighbor squares
     if not next_path and me.has_trait(AGGRESSIVE):
         # We'll use the name prefix to tell who's friendly
-        friendly_snake_ids = [snake['id'] for snake in data['snakes']['data']
+        friendly_snake_ids = [snake['id'] for snake in data['board']['snakes']
                               if snake['name'].split(' ')[0] == me.name.split(' ')[0]]
-        enemy_snake_heads = [point_to_coord(snake['body']['data'][0]) for snake in data['snakes']['data']
+        enemy_snake_heads = [point_to_coord(snake['body'][0]) for snake in data['board']['snakes']
                              if (not me.has_trait(COOPERATIVE) or snake['id'] not in friendly_snake_ids) and snake['id'] != data['you']['id']]
         enemy_snake_targets = [neighbor for head in enemy_snake_heads for neighbor in get_coord_neighbors(head)]
         attack_paths = pathfinder.get_paths_to_coords(me.head, enemy_snake_targets)
@@ -126,14 +127,14 @@ def get_move(dna, traits):
         else:
             # Uh oh, we found no valid moves. Randomly move to our death!
             return {
-                'move': random.choice(DIRECTION_MAP.values()),
-                'taunt': 'Uh oh'
+                "move": random.choice(list(DIRECTION_MAP.values())),
+                # 'taunt': 'Uh oh'
             }
     else:
         # Our target will be the second coord in the shortest path (the first coord is our current position)
         next_coord = next_path[1][1]
 
-        print 'Name: %s - Next: %s - Target: %s - Cost: %s' % (me.name, next_path[1][0], next_path[1][-1], next_path[0])
+        print('Name: %s - Next: %s - Target: %s - Cost: %s' % (me.name, next_path[1][0], next_path[1][-1], next_path[0]))
 
     # Calculate to the change between our head and the next move
     coord_delta = sub_coords(next_coord, me.head)
@@ -142,8 +143,8 @@ def get_move(dna, traits):
     direction = DIRECTION_MAP[coord_delta]
 
     return {
-        'move': direction,
-        'taunt': direction
+        "move": direction,
+        # 'taunt': direction
     }
 
 
@@ -157,7 +158,7 @@ def get_move(dna, traits):
 @bottle.post('/<dna>/<traits>/move')
 @bottle.post('/<color>/<dna>/<traits>/move')
 def move(dna='', traits='', color=''):
-    return get_move(dna, traits)
+    return json.dumps(get_move(dna, traits))
 
 
 @bottle.route('/')
@@ -198,7 +199,7 @@ def start(dna='', traits='', color=''):
         }
 
         # Make us pretty!
-        color = random.choice(s4_colors.values())
+        color = random.choice(list(s4_colors.values()))
 
     return {
         'color': color,
@@ -214,7 +215,7 @@ application = bottle.default_app()
 if __name__ == '__main__':
     bottle.run(
         application,
-        host=os.getenv('IP', '192.168.98.15'),
-        # host=os.getenv('IP', '192.168.0.19'),
-        port=os.getenv('PORT', '8080'),
+        # host=os.getenv('IP', '192.168.98.15'),
+        host=os.getenv('IP', '127.0.0.1'),
+        port=os.getenv('PORT', '8100'),
         debug=True)

@@ -7,9 +7,9 @@ class Snake:
         # The snake's data
         self.id = data['id']
         self.name = data['name']
-        self.length = data['length']
+        self.length = len(data['body'])
         self.health = data['health']
-        self.coords = [point_to_coord(point) for point in data['body']['data']]
+        self.coords = [point_to_coord(point) for point in data['body']]
         self.head = self.coords[0]
         self.body = self.coords[1:-1] if self.length >= 3 else []
         self.tail = self.coords[-1]
