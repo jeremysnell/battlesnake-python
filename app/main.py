@@ -9,6 +9,11 @@ from app.pathfinder import PathFinder
 from app.snake import PlayerSnake
 from app.utility import point_to_coord, get_coord_neighbors, sub_coords, get_absolute_distance
 
+# TODO: Split into API and main, update endpoints
+# TODO: Create board class
+# TODO: Better logging, with turn
+
+# TODO: Snake should move towards largest empty space?
 
 # TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
 

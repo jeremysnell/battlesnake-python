@@ -6,6 +6,17 @@ from boddle import boddle
 
 from app import main
 
+# """
+# ________
+# ________
+# ________
+# ________
+# ________
+# ________
+# ________
+# ________
+# """
+
 
 class TestIt(unittest.TestCase):
   def setUp(self):
@@ -34,7 +45,7 @@ class TestIt(unittest.TestCase):
             """
     )):
       moveResponse = main.move()
-      self.assertEqual(moveResponse, '{"move": "right"}')
+      self.assertEqual('{"move": "right"}', moveResponse)
 
   def testMoveEnemy(self):
     with boddle(json=self.generateMoveRequest(
@@ -46,7 +57,46 @@ class TestIt(unittest.TestCase):
             """
     )):
       moveResponse = main.move()
-      self.assertNotEqual(moveResponse, '{"move": "up"}')
+      self.assertNotEqual('{"move": "up"}', moveResponse)
+
+  def testMoveAvoidTrap(self):
+    with boddle(json=self.generateMoveRequest(
+            """
+            ____y___
+            _00_000_
+            _00Y__0_
+            _000000_
+            ________
+            ________
+            ________
+            ________
+            """
+    )):
+      moveResponse = main.move()
+      self.assertEqual('{"move": "up"}', moveResponse)
+
+  def testMoveAvoidTrapOpp(self):
+    with boddle(json=self.generateMoveRequest(
+            """
+            _______________
+            __________y0_00
+            ___________0000
+            ______________0
+            ______________0
+            ______________0
+            _____________00
+            ________000000_
+            ________0_____X
+            ________0______
+            ________0______
+            ________0000___
+            ___________00__
+            ____________00X
+            _______X__X__Y_
+            """
+    )):
+      moveResponse = main.move(traits="opp")
+      self.assertEqual('{"move": "left"}', moveResponse)
 
   def generateMoveRequest(self, asciiBoard):
     moveRequest = {}

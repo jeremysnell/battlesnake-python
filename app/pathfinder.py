@@ -25,14 +25,14 @@ class PathFinder:
             if max_fill_size is not None and len(explored) >= max_fill_size:
                 return explored
 
-            coord_depth = queue.pop(0)
-            explored.append(coord_depth)
+            coord, depth = queue.pop(0)
+            explored.append(coord)
 
-            if max_depth is None or coord_depth[1] < max_depth:
-                neighbors = self.get_valid_neighbors(coord_depth[0])
+            if max_depth is None or depth < max_depth:
+                neighbors = self.get_valid_neighbors(coord)
                 for neighbor in neighbors:
                     if neighbor not in queue and neighbor not in explored:
-                        queue.append((neighbor, coord_depth[1] + 1))
+                        queue.append((neighbor, depth + 1))
 
         return explored
 
