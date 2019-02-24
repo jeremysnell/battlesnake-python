@@ -58,9 +58,8 @@ class PathFinder:
         # Don't move into any coords where a snake is,
         # unless we're far enough away that it won't be there when we get there
         # Our own head isn't fatal, since we can never move into it
-        fatal_coords = [coord for snake in self.context.board.snakes for coord in snake.body
-                        if coord != self.context.me.tail
-                        and (foresight_distance == 0
+        fatal_coords = [coord for snake in self.context.board.snakes for coord in snake.body[:-1]
+                        if (foresight_distance == 0
                         or len(snake.body) - (snake.body.index(coord) + 1) >=
                         min(get_absolute_distance(self.context.me.head, coord), len(snake.body), foresight_distance))]
 

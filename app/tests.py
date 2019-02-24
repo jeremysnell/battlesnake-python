@@ -105,25 +105,39 @@ class TestIt(unittest.TestCase):
             move_response = main.move(traits="ins")
             self.assertEqual('{"move": "right"}', move_response.body)
 
+    def testMoveAvoidStackedTail(self):
+        move_request = self.generateMoveRequest(
+                """
+                0Y__
+                0y__
+                ____
+                ____
+                """
+        )
+
+        # Create a stacked tail, as if we just ate
+        move_request['you']['body'].append(move_request['you']['body'][-1])
+
+        with boddle(json=move_request):
+            move_response = main.move(traits="ins")
+            self.assertEqual('{"move": "right"}', move_response.body)
+
         # TODO add trapped tail test
 
     def generateMoveRequest(self, asciiBoard):
         moveRequest = {}
         self.addToil(moveRequest)
-        self.convert(moveRequest,
-                     asciiBoard
-                     )
-        moveRequest['you'] = self.you
+        self.convert(moveRequest, asciiBoard)
         return moveRequest
 
     def convert(self, moveRequest, asciiPicture):
         lines = asciiPicture.splitlines()[1:-1]
 
+        moveRequest['you'] = self.you
         moveRequest['board'] = {}
         moveRequest['board']['height'] = len(lines)
         moveRequest['board']['width'] = len(lines)
         moveRequest['board']['food'] = []
-        moveRequest['board']['you'] = self.you
         for r_index, row in enumerate(lines):
             for c_index, char in enumerate(row.strip()):
                 if char == '_':
@@ -134,17 +148,17 @@ class TestIt(unittest.TestCase):
                         'x': c_index
                     })
                 elif char == 'Y':
-                    moveRequest['board']['you']['head'] = {
+                    moveRequest['you']['head'] = {
                         'y': r_index,
                         'x': c_index
                     }
                 elif char == 'y':
-                    moveRequest['board']['you']['tail'] = {
+                    moveRequest['you']['tail'] = {
                         'y': r_index,
                         'x': c_index
                     }
                 elif char == '0':
-                    moveRequest['board']['you']['body'].append({
+                    moveRequest['you']['body'].append({
                         'y': r_index,
                         'x': c_index
                     })
@@ -168,7 +182,7 @@ class TestIt(unittest.TestCase):
                         })
 
         moveRequest['board']['snakes'] = list(self.snakes.values())
-        moveRequest['board']['snakes'].append(moveRequest['board']['you'])
+        moveRequest['board']['snakes'].append(moveRequest['you'])
 
         for snake in moveRequest['board']['snakes']:
             snake['body'].insert(0, snake.pop('head'))
