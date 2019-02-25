@@ -67,7 +67,7 @@ application = bottle.default_app()
 if __name__ == '__main__':
     bottle.run(
         application,
-        host=os.getenv('IP', '192.168.98.15'),
-        # host=os.getenv('IP', '192.168.0.19'),
+        host=os.getenv('IP', '0.0.0.0'),
         port=os.getenv('PORT', '8080'),
-        debug=True)
+        debug=os.getenv('DEBUG', True)
+    )
