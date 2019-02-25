@@ -39,7 +39,7 @@ class PathFinder:
     # For each valid move, find the size of the area we'd be moving into
     def coord_to_fill_size(self):
         if not self._coord_to_fill_size:
-            fill_coords = dict([(move, self.flood_fill(move)) for move in self.valid_moves()])
+            fill_coords = dict((move, self.flood_fill(move, self.context.me.length * 2)) for move in self.valid_moves())
             self._coord_to_fill_size = dict([(coord, len(fill)) for coord, fill in fill_coords.items()])
 
         return self._coord_to_fill_size
@@ -73,7 +73,7 @@ class PathFinder:
                                             if neighbor not in [coord for coord, depth in explored]]
                     explored = recurse_fill(unexplored_neighbors, explored, depth + 1)
 
-            return explored
+            return explored[:max_fill_size - 1] if max_fill_size else explored
 
         return recurse_fill([start_coord], [], 0)
 

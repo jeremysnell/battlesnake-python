@@ -1,6 +1,6 @@
+# TODO: Get edge coords for fill
 # TODO: Avoid food when you don't want to eat?
 # TODO: Food costs less to move through?
-# TODO: Better logging, with turn
 # TODO: When trapped, take the longest path towards the square closest to the tail of a snake
 # TODO: Be aware of a move that puts you far away from food when you're peckish
 
@@ -8,7 +8,6 @@
 # TODO: Cut off snakes, if nearby and aggressive
 
 # TODO: Add food distance calcs?
-# TODO: Add trait ordering? (agg-glu is diff than glu-agg)
 # TODO: If there's another, bigger head in a small space with you, BAD!
 # TODO: Should being next to yourself always cost less?
 # TODO: If our tail is in an area, it's safer
@@ -16,3 +15,6 @@
 # TODO: Go after food we're closer to than any other snake first
 # TODO: Being on the outside edge is bad
 # TODO: Direction we're moving along body, away/to head?
+
+# TODO: Better logging, with turn
+# TODO: Add trait ordering? (agg-glu is diff than glu-agg)
