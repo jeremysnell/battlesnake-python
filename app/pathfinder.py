@@ -50,12 +50,13 @@ class PathFinder:
 
         return self._valid_moves
 
+    # TODO: Maybe don't use flood fill?
     # Get danger based on how close coords are to a snake head
     def head_danger_fill(self):
         if not self._head_danger_fill:
             enemy_heads = [(snake.head, len(snake.body) < self.context.me.length)
                            for snake in self.context.board.snakes if snake.id != self.context.me.id]
-            self._head_danger_fill = [fill for head in enemy_heads for fill in self.flood_fill(head[0])]
+            self._head_danger_fill = [fill for head in enemy_heads for fill in self.flood_fill(head[0], max_depth=5)]
 
         return self._head_danger_fill
 
