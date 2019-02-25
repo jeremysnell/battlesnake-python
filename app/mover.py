@@ -1,4 +1,5 @@
 import random
+from copy import deepcopy
 
 from app.constants import *
 from app.pathfinder import PathFinder
@@ -6,55 +7,62 @@ from app.utility import get_coord_neighbors, sub_coords
 
 
 class Mover(object):
-    next_path = []
-
-    _best_path_to_food = []
-    _best_path_to_my_tail = []
-
     def __init__(self, context):
         self.context = context
         self.pathfinder = PathFinder(context)
 
+        self._best_path_to_food = []
+        self._best_path_to_my_tail = []
+
     def next_move(self):
+        next_path = []
+        
+        # TODO: Longest Path
+        # We're trapped, we need to find a new approach
+        if self.pathfinder.is_trapped():
+            # Try and follow our tail to get out
+            next_path = self.best_path_to_my_tail()
+
+            # if not next_path:
+            #     next_path = self._get_path_to_my_body_segment_closest_to_tail()
+
+            if not next_path:
+                next_path = self._get_best_path_to_any_tail()
+
         # Eat if we're starving
         if self.context.me.health < self.context.dna[STARVING_THRESHOLD]:
-            self.next_path = self.best_path_to_food()
-
-        # We're trapped, we better switch up our approach
-        if self.pathfinder.is_trapped:
-            # Try and follow our tail to get out
-            self.next_path = self.best_path_to_my_tail()
-
-            if not self.next_path:
-                self.next_path = self._get_path_to_my_body_segment_closest_to_tail()
-
-            if not self.next_path:
-                self.next_path = self._get_best_path_to_any_tail()
-
+            next_path = self.best_path_to_food()
         # Eat if opportunistic or peckish
-        if not self.next_path and (OPPORTUNISTIC in self.context.traits or
-                                   self.context.me.health < self.context.dna[PECKISH_THRESHOLD]):
-            if self.best_path_to_food() and (
-                    self.best_path_to_food()[0] <= self.context.dna[MAX_OPPORTUNISTIC_EAT_COST] or
-                    self.pathfinder.path_is_safe(self.best_path_to_food())):
-                self.next_path = self.best_path_to_food()
+        elif OPPORTUNISTIC in self.context.traits or self.context.me.health < self.context.dna[PECKISH_THRESHOLD]:
+            # Are we adjacent to the food?
+            # Will eating the food put us in a smaller space?
+            if self.best_path_to_food() and len(self.best_path_to_food()[1]) <= 2:
+                # and (not next_path or self.best_path_to_food()[0] <= next_path[0]):
+                move = self.best_path_to_food()[1][1]
+                move_pathfinder = self._get_pathfinder_for_move(move)
+
+                # Will we still be able to get where we were going?
+                if not next_path or move_pathfinder.get_path_to_coord(move, next_path[1][-1]):
+                    # self.best_path_to_food()[0] <= self.context.dna[MAX_OPPORTUNISTIC_EAT_COST] or
+                    # self.pathfinder.path_is_safe(self.best_path_to_food())
+                    next_path = self.best_path_to_food()
 
         # Try and get longer
-        if not self.next_path and GLUTTONOUS in self.context.traits and \
+        if not next_path and GLUTTONOUS in self.context.traits and \
                 not self.context.board.is_longest_snake(self.context.me):
             if self.best_path_to_food() and self.pathfinder.path_is_safe(self.best_path_to_food()):
-                self.next_path = self.best_path_to_food()
+                next_path = self.best_path_to_food()
 
         # The big snakes eat the little ones
-        if not self.next_path and AGGRESSIVE in self.context.traits:
-            self.next_path = self._get_best_attack_path()
+        if not next_path and AGGRESSIVE in self.context.traits:
+            next_path = self._get_best_attack_path()
 
         # Try and chase tail
-        if not self.next_path and INSECURE in self.context.traits:
-            self.next_path = self.best_path_to_my_tail()
+        if not next_path and INSECURE in self.context.traits:
+            next_path = self.best_path_to_my_tail()
 
         # Next move is second coord in path (the first coord is our current position)
-        next_coord = self.next_path[1][1] if self.next_path else None
+        next_coord = next_path[1][1] if next_path else None
 
         # Move to the safest adjacent square
         if not next_coord:
@@ -119,10 +127,22 @@ class Mover(object):
 
     def _get_safest_moves(self):
         valid_moves_and_costs = [(self.pathfinder.get_cost(self.context.me.head, coord), coord)
-                                 for coord in self.pathfinder.valid_moves]
+                                 for coord in self.pathfinder.valid_moves()]
 
         if valid_moves_and_costs:
             lowest_cost = min(valid_moves_and_costs, key=lambda x: x[0])[0]
             return [move for cost, move in valid_moves_and_costs if cost == lowest_cost]
 
         return [None]
+
+    def _get_pathfinder_for_move(self, coord):
+        future_context = deepcopy(self.context)
+
+        is_food = coord in future_context.board.food
+
+        if is_food:
+            future_context.board.food.remove(coord)
+
+        future_context.me.moved(coord, is_food)
+
+        return PathFinder(future_context)

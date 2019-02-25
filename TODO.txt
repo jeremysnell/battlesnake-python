@@ -1,14 +1,12 @@
+# TODO: Avoid food when you don't want to eat?
+# TODO: Food costs less to move through?
 # TODO: Better logging, with turn
-# TODO: When a snake is following its tail, any move next to its own tail is safe
-# TODO: Snake should move towards largest empty space?
 # TODO: When trapped, take the longest path towards the square closest to the tail of a snake
-# TODO: Squares adjacent to snake heads are considered trapped too
+# TODO: Be aware of a move that puts you far away from food when you're peckish
 
-# TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
-
-# TODO: Stay away from snake heads?
+# TODO: **** Make snake head predictions for next turn? Could we be trapped? Untrapped?
 # TODO: Cut off snakes, if nearby and aggressive
-# TODO: Weight based on relative size of flood fill areas?
+
 # TODO: Add food distance calcs?
 # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
 # TODO: If there's another, bigger head in a small space with you, BAD!

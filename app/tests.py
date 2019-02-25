@@ -64,7 +64,7 @@ class TestIt(unittest.TestCase):
             move_response = main.move()
             self.assertEqual('{"move": "up"}', move_response.body)
 
-    def testMoveAvoidTrapOpp(self):
+    def testMoveAvoidTrap2(self):
         with boddle(json=self.generateMoveRequest(
                 """
                 _______________
@@ -84,15 +84,15 @@ class TestIt(unittest.TestCase):
                 _______X__X__Y_
                 """
         )):
-            move_response = main.move(traits="opp")
+            move_response = main.move()
             self.assertEqual('{"move": "left"}', move_response.body)
 
-    def testMoveAvoidTrapIns(self):
+    def testMoveAvoidTrap3(self):
         with boddle(json=self.generateMoveRequest(
                 """
                 ______000_
-                ____000_y_
-                ____0__Y__
+                ____000_00
+                ____0__Y_y
                 ____0__0__
                 ____0__00_
                 __000___0_
@@ -102,10 +102,108 @@ class TestIt(unittest.TestCase):
                 __________
                 """
         )):
-            move_response = main.move(traits="ins")
+            move_response = main.move()
             self.assertEqual('{"move": "right"}', move_response.body)
 
-    def testMoveAvoidStackedTail(self):
+    def testMoveChooseLargerTrap(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                _0000__Y0_
+                00__000_0_
+                0_____0_00
+                0_____0__0
+                0_____00_0
+                0__y0__0_0
+                0___0000_0
+                0__000__00
+                00_0_0000_
+                _000______
+                """
+        )):
+            move_response = main.move()
+            self.assertEqual('{"move": "down"}', move_response.body)
+
+    def testMoveTailInsteadOfTrap(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                ___0000___
+                __00__0___
+                _00_000___
+                Y0__0_____
+                y_000_____
+                0000______
+                00_00000__
+                0______0__
+                00000000__
+                __________
+                """
+        )):
+            move_response = main.move()
+            self.assertEqual('{"move": "down"}', move_response.body)
+
+    def testMoveIntoOpenSpace(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                __________
+                __________
+                __________
+                ___000____
+                _000_0__y_
+                _0__00__0_
+                00__Y___0_
+                0_0000_00_
+                000__000__
+                00________
+                """
+        )):
+            move_response = main.move()
+            self.assertEqual('{"move": "right"}', move_response.body)
+
+    def testMoveEatWhenStarving(self):
+        move_request = self.generateMoveRequest(
+                """
+                ____
+                X_Yy
+                __00
+                ____
+                """
+        )
+
+        move_request['you']['health'] = 5
+
+        with boddle(json=move_request):
+            move_response = main.move()
+            self.assertEqual('{"move": "left"}', move_response.body)
+
+    def testMoveEatWhenTrappedAndPeckish(self):
+        move_request = self.generateMoveRequest(
+                """
+                00X_
+                00Yy
+                0000
+                0000
+                """
+        )
+
+        move_request['you']['health'] = 15
+
+        with boddle(json=move_request):
+            move_response = main.move()
+            self.assertEqual('{"move": "up"}', move_response.body)
+
+    def testMoveDontEatWhenNextToTail(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                000_
+                0_Yy
+                0_X0
+                0000
+                """
+        )):
+            move_response = main.move(traits="opp")
+            self.assertEqual('{"move": "right"}', move_response.body)
+
+    def testMoveAvoidAdjacentStackedTail(self):
         move_request = self.generateMoveRequest(
                 """
                 0Y__
@@ -122,7 +220,60 @@ class TestIt(unittest.TestCase):
             move_response = main.move(traits="ins")
             self.assertEqual('{"move": "right"}', move_response.body)
 
+    def testMoveTowardsStackedTail(self):
+        move_request = self.generateMoveRequest(
+                """
+                _00000000_
+                _000000000
+                __Y__000_0
+                __00_000_0
+                ___0___0_0
+                _000___0_0
+                _0___y00_0
+                00_______0
+                0_0000__00
+                000__0000_
+                """
+        )
+
+        # Create a stacked tail, as if we just ate
+        move_request['you']['body'].append(move_request['you']['body'][-1])
+
+        with boddle(json=move_request):
+            move_response = main.move()
+            self.assertEqual('{"move": "right"}', move_response.body)
+
+    def testMoveTowardsStackedTail2(self):
+        move_request = self.generateMoveRequest(
+                """
+                0Y__
+                0y__
+                ____
+                ____
+                """
+        )
+
+        # Create a stacked tail, as if we just ate
+        move_request['you']['body'].append(move_request['you']['body'][-1])
+
+        with boddle(json=move_request):
+            move_response = main.move(traits="ins")
+            self.assertEqual('{"move": "right"}', move_response.body)
+
+    def testMoveAvoidEnemyHead(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                __A1
+                _Y0a
+                __y_
+                ____
+                """
+        )):
+            move_response = main.move()
+            self.assertEqual('{"move": "down"}', move_response.body)
+
         # TODO add trapped tail test
+        # TODO add food when starving and trapped test
 
     def generateMoveRequest(self, asciiBoard):
         moveRequest = {}

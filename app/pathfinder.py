@@ -7,33 +7,77 @@ from app.utility import *
 class PathFinder:
     def __init__(self, context):
         self.context = context
-        
-        self.map_size = (context.board.width, context.board.height)
-
-        # Used to cache node costs, so we don't recalc every time
-        self.node_costs = {}
+        self._node_costs = {}
 
         self._finder = self._get_astar_pathfinder()
 
+        self._node_costs = {}  # Used to cache node costs, so we don't recalc every time
+        self._fatal_coords = []
+        # self._body_danger = []
+        self._head_danger_fill = []
+        self._valid_moves = []
+        self._coord_to_fill_size = {}
+        self._is_trapped = False
+
+        # # Used to calculate the danger in moving next to a snake, based on how close to the tail it is
+        # self.body_danger = [(coord, len(snake.body) - index) for snake in self.context.board.snakes
+        #                     for index, coord in enumerate(snake.body) if coord != self.context.me.head]
+
+        # Avoid squares adjacent to enemy snake heads, since they're dangerous
+        # Smaller snakes that we're directly adjacent to are safe, though
+        # self.head_danger_coords = [neighbor for head, smaller in enemy_heads for neighbor in
+        #                            get_coord_neighbors(head) if not
+        #                            (smaller and is_adjacent_to_coord(self.context.me.head, neighbor))]
+
+    # Are we enclosed in an area smaller than our body?
+    def is_trapped(self):
+        if not self._is_trapped:
+            self._is_trapped = all(size < self.context.me.length for size in list(self.coord_to_fill_size().values()))
+
+        return self._is_trapped
+
+    # For each valid move, find the size of the area we'd be moving into
+    def coord_to_fill_size(self):
+        if not self._coord_to_fill_size:
+            fill_coords = dict([(move, self.flood_fill(move)) for move in self.valid_moves()])
+            self._coord_to_fill_size = dict([(coord, len(fill)) for coord, fill in fill_coords.items()])
+
+        return self._coord_to_fill_size
+
+    def valid_moves(self):
+        if not self._valid_moves:
+            self._valid_moves = self.get_valid_neighbors(self.context.me.head)
+
+        return self._valid_moves
+
+    # Get danger based on how close coords are to a snake head
+    def head_danger_fill(self):
+        if not self._head_danger_fill:
+            enemy_heads = [(snake.head, len(snake.body) < self.context.me.length)
+                           for snake in self.context.board.snakes if snake.id != self.context.me.id]
+            self._head_danger_fill = [fill for head in enemy_heads for fill in self.flood_fill(head[0])]
+
+        return self._head_danger_fill
+
     # Determines the size of the safe area around a coord
     def flood_fill(self, start_coord, max_fill_size=None, max_depth=None):
-        explored = []
-        queue = [(start_coord, 0)]
-        while queue:
+        def recurse_fill(coords, explored, depth):
             if max_fill_size is not None and len(explored) >= max_fill_size:
                 return explored
 
-            coord, depth = queue.pop(0)
-            explored.append(coord)
+            explored.extend([(coord, depth) for coord in coords])
 
             if max_depth is None or depth < max_depth:
-                neighbors = self.get_valid_neighbors(coord)
-                for neighbor in neighbors:
-                    if neighbor not in queue and neighbor not in explored:
-                        queue.append((neighbor, depth + 1))
+                for coord in coords:
+                    unexplored_neighbors = [neighbor for neighbor in self.get_valid_neighbors(coord)
+                                            if neighbor not in [coord for coord, depth in explored]]
+                    explored = recurse_fill(unexplored_neighbors, explored, depth + 1)
 
-        return explored
+            return explored
 
+        return recurse_fill([start_coord], [], 0)
+
+    # TODO: Use this?
     # Finds the best path to fill an area
     def get_best_path_fill(self, start_coord, max_path_length=None):
         def recurse_path(coord, path):
@@ -54,51 +98,62 @@ class PathFinder:
 
         return recurse_path(start_coord, [])
 
-    def _get_fatal_coords(self, foresight_distance=0):
+    def fatal_coords(self, foresight_distance=0):
         # Don't move into any coords where a snake is,
         # unless we're far enough away that it won't be there when we get there
         # Our own head isn't fatal, since we can never move into it
-        fatal_coords = [coord for snake in self.context.board.snakes for coord in snake.body[:-1]
-                        if (foresight_distance == 0
-                        or len(snake.body) - (snake.body.index(coord) + 1) >=
-                        min(get_absolute_distance(self.context.me.head, coord), len(snake.body), foresight_distance))]
+        # Tails are safe, unless we're adjacent to a snake that ate
 
-        return fatal_coords
+        # if (foresight_distance == 0
+        # or len(snake.body) - (snake.body.index(coord) + 1) >=
+        # min(get_absolute_distance(self.context.me.head, coord), len(snake.body), foresight_distance))
+        if not self._fatal_coords:
+            self._fatal_coords = [coord for snake in self.context.board.snakes for coord in snake.body
+                                  if coord != snake.tail or (is_adjacent_to_coord(self.context.me.head, snake.tail) and
+                                                             snake.body.count(snake.tail) > 1)]
 
-    # How far ahead we want to try and predict tail positions
-    def set_foresight(self, foresight_distance):
-        self.fatal_coords = self._get_fatal_coords(foresight_distance)
+        return self._fatal_coords
+
+    # # How far ahead we want to try and predict tail positions
+    # def set_foresight(self, foresight_distance):
+    #     self.fatal_coords = self.fatal_coords(foresight_distance)
 
     # TODO: Not sure this is working the way I think. Node 1 and Node 2
     # Node cost calculation, which will make more dangerous paths cost more
     def get_cost(self, node1, node2):
         # See whether we've already performed the cost calc for this node
-        cached_cost = self.node_costs.get(node2)
+        cached_cost = self._node_costs.get(node2)
+
         if cached_cost:
             return cached_cost
 
         cost = 0
 
-        valid_node_neighbor_count = len(self.get_valid_neighbors(node2))
+        # Food costs more to path into, to prevent us from growing too much
+        if node2 in self.context.board.food:
+            cost += self.context.dna[FOOD_COST]
 
-        # Are we limiting our future moves?
-        if valid_node_neighbor_count < 3:
-            # Pathing near walls costs more
-            adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
-            cost += adjacent_wall_count * self.context.dna[WALL_DANGER_COST]
-
-            # Pathing near other snake's bodies is more expensive, based on how close to the head we are
-            cost += sum([danger * self.context.dna[BODY_DANGER_COST] for coord, danger in self.body_danger if is_adjacent_to_coord(node2, coord)])
-
-            # Moving into a corridor is BAD NEWS!
-            if valid_node_neighbor_count == 1:
-                cost *= 2
-            elif valid_node_neighbor_count == 0:
-                # Why would you do this???
-                cost *= 10
+        # valid_node_neighbor_count = len(self.get_valid_neighbors(node2))
+        #
+        # # Are we limiting our future moves?
+        # if valid_node_neighbor_count < 3:
+        #     # Pathing near walls costs more
+        #     adjacent_wall_count = len([c for i, c in enumerate(node2) if c == 0 or c == self.map_size[i] - 1])
+        #     cost += adjacent_wall_count * self.context.dna[WALL_DANGER_COST]
+        #
+        #     # Pathing near other snake's bodies is more expensive, based on how close to the head we are
+        #     cost += sum([danger * self.context.dna[BODY_DANGER_COST] for coord, danger in self.body_danger if is_adjacent_to_coord(node2, coord)])
+        #
+        #     # Moving into a corridor is BAD NEWS!
+        #     if valid_node_neighbor_count == 1:
+        #         cost *= 2
+        #     elif valid_node_neighbor_count == 0:
+        #         # Why would you do this???
+        #         cost *= 10
 
         # Squares nearer to other snakes heads are more dangerous
-        cost += sum([1 / float(danger or 1) for coord, danger in self.head_danger_fill if coord == node2]) * self.context.dna[HEAD_DANGER_COST]
+        cost += sum([1 / float(danger or 1) for coord, danger in self.head_danger_fill()
+                     if coord == node2]) * self.context.dna[HEAD_DANGER_COST]
 
         # Pathing into squares adjacent to a snake head costs much more
         #if node2 in self.head_danger_coords:
@@ -106,15 +161,18 @@ class PathFinder:
 
         # Pathing into a small area costs more, based on how small it is compared to our length
         # If we're already trapped, and no moves make us "more" trapped, ignore the danger
-        if (not self.is_trapped or len(set(self.coord_to_trap_danger.values())) > 1) \
-                and node2 in self.coord_to_trap_danger.keys():
-            cost += (1 - (self.coord_to_trap_danger[node2] / float(self.context.me.length))) * self.context.dna[TRAP_DANGER_COST]
+        # if (not self.is_trapped or len(set(self.coord_to_fill_size.values())) > 1) \
+        #         and node2 in self.coord_to_fill_size.keys():
+        #     cost += (1 - (self.coord_to_fill_size[node2] / float(self.context.me.length))) * self.context.dna[TRAP_DANGER_COST]
+
+        if node2 in self.coord_to_fill_size().keys():
+            cost += self.context.dna[TRAP_DANGER_COST] / self.coord_to_fill_size()[node2]
 
         # Make sure the cost is always at least the base cost
         node_cost = max(cost, self.context.dna[BASE_COST])
 
         # Add to cache
-        self.node_costs[node2] = node_cost
+        self._node_costs[node2] = node_cost
 
         return node_cost
 
@@ -125,45 +183,14 @@ class PathFinder:
 
         valid_neighbors = [
             neighbor for neighbor in coord_neighbors
-            if 0 <= neighbor[0] < self.map_size[0]  # X Coord must be within map
-               and 0 <= neighbor[1] < self.map_size[1]  # Y Coord must be within map
-               and (neighbor not in self.fatal_coords)  # Don't crash into any snake
+            if 0 <= neighbor[0] < self.context.board.width  # X Coord must be within board
+               and 0 <= neighbor[1] < self.context.board.height  # Y Coord must be within board
+               and (neighbor not in self.fatal_coords())  # Don't crash into any snake
         ]
 
         return valid_neighbors
 
     def _get_astar_pathfinder(self):
-        self.fatal_coords = self._get_fatal_coords()
-
-        # Used to calculate the danger in moving next to a snake, based on how close to the tail it is
-        self.body_danger = [(coord, len(snake.body) - index) for snake in self.context.board.snakes
-                            for index, coord in enumerate(snake.body) if coord != self.context.me.head]
-
-        # Avoid squares adjacent to enemy snake heads, since they're dangerous
-        # Smaller snakes that we're directly adjacent to are safe, though
-        other_snake_heads = [(snake.head, len(snake.body) < self.context.me.length)
-                            for snake in self.context.board.snakes if snake.id != self.context.me.id]
-        self.head_danger_coords = [neighbor for head, smaller in other_snake_heads for neighbor in
-                                   get_coord_neighbors(head) if not
-                                   (smaller and is_adjacent_to_coord(self.context.me.head, neighbor))]
-
-        # Get danger based on how close coords are to a snake head
-        self.head_danger_fill = [fill for head in other_snake_heads for fill in self.flood_fill(head[0], None, 3)]
-
-        # Get valid moves
-        self.valid_moves = self.get_valid_neighbors(self.context.me.head)
-
-        # Find the size of the area we'd be moving into, for each valid move
-        fill_coords = dict(
-            [(move_coord, self.flood_fill(move_coord, self.context.me.length)) for move_coord in self.valid_moves])
-
-        # If the area is smaller than our size (with multiplier), it's dangerous
-        self.coord_to_trap_danger = dict(
-            [(coord, len(fill)) for coord, fill in fill_coords.items() if len(fill) < self.context.me.length])
-
-        # We're enclosed in an area smaller than our body
-        self.is_trapped = len(self.coord_to_trap_danger) == len(fill_coords)
-
         # Used by the astar algorithm to evaluate node costs
         def cost_func(node1, node2):
             return self.get_cost(node1, node2)
