@@ -9,5 +9,5 @@ class Context(object):
         self.me = Snake(data['you'])
 
         # If no DNA is passed in, use the default values
-        self.dna = dna.split('-') if dna else DEFAULT_DNA
+        self.dna = [int(dna or DEFAULT_DNA[i]) for i, dna in enumerate(dna.split('-'))] if dna else DEFAULT_DNA
         self.traits = traits.split('-')
