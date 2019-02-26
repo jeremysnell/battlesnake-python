@@ -7,7 +7,9 @@ from app.mover import Mover
 
 
 @bottle.route('/')
-def index():
+@bottle.route('/<traits>/')
+@bottle.route('/<dna>/<traits>/')
+def index(dna='', traits=''):
     return '''
     Battlesnake documentation can be found at
        <a href="https://docs.battlesnake.io">https://docs.battlesnake.io</a>.
@@ -15,7 +17,9 @@ def index():
 
 
 @bottle.route('/static/<path:path>')
-def static(path):
+@bottle.route('/<traits>/static/<path:path>')
+@bottle.route('/<dna>/<traits>/static/<path:path>')
+def static(path, dna='', traits=''):
     """
     Given a path, return the static file located relative
     to the static folder.
@@ -26,6 +30,8 @@ def static(path):
 
 
 @bottle.post('/ping')
+@bottle.post('/<traits>/ping')
+@bottle.post('/<dna>/<traits>/ping')
 def ping():
     """
     A keep-alive endpoint used to prevent cloud application platforms,
@@ -35,6 +41,8 @@ def ping():
 
 
 @bottle.post('/start')
+@bottle.post('/<traits>/start')
+@bottle.post('/<dna>/<traits>/start')
 def start():
     color = "#00FF00"
 
@@ -44,7 +52,6 @@ def start():
 @bottle.post('/move')
 @bottle.post('/<traits>/move')
 @bottle.post('/<dna>/<traits>/move')
-@bottle.post('/<color>/<dna>/<traits>/move')
 def move(dna='', traits=''):
     data = bottle.request.json
 
@@ -56,6 +63,8 @@ def move(dna='', traits=''):
 
 
 @bottle.post('/end')
+@bottle.post('/<traits>/end')
+@bottle.post('/<dna>/<traits>/end')
 def end():
     return end_response()
 
