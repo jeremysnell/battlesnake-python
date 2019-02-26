@@ -32,7 +32,7 @@ def static(path, dna='', traits=''):
 @bottle.post('/ping')
 @bottle.post('/<traits>/ping')
 @bottle.post('/<dna>/<traits>/ping')
-def ping():
+def ping(dna='', traits=''):
     """
     A keep-alive endpoint used to prevent cloud application platforms,
     such as Heroku, from sleeping the application instance.
@@ -43,7 +43,7 @@ def ping():
 @bottle.post('/start')
 @bottle.post('/<traits>/start')
 @bottle.post('/<dna>/<traits>/start')
-def start():
+def start(dna='', traits=''):
     color = "#00FF00"
 
     return start_response(color)
@@ -65,7 +65,7 @@ def move(dna='', traits=''):
 @bottle.post('/end')
 @bottle.post('/<traits>/end')
 @bottle.post('/<dna>/<traits>/end')
-def end():
+def end(dna='', traits=''):
     return end_response()
 
 
