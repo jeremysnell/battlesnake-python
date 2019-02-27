@@ -272,6 +272,30 @@ class TestIt(unittest.TestCase):
             move_response = main.move()
             self.assertEqual('{"move": "down"}', move_response.body)
 
+    def testMoveTargetLatestBodySegment(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                _A_y
+                _100
+                _1Y_
+                a1__
+                """
+        )):
+            move_response = main.move()
+            self.assertEqual('{"move": "right"}', move_response.body)
+
+    def testMoveDontTargetLatestBodySegment(self):
+        with boddle(json=self.generateMoveRequest(
+                """
+                ____
+                Y000
+                0000
+                y___
+                """
+        )):
+            move_response = main.move()
+            self.assertEqual('{"move": "up"}', move_response.body)
+
         # TODO add trapped tail test
         # TODO add food when starving and trapped test
 

@@ -16,24 +16,29 @@ class Mover(object):
 
     def next_move(self):
         next_path = []
-        
-        # TODO: Longest Path
+        motivation = ""
+
         # We're trapped, we need to find a new approach
         if self.pathfinder.is_trapped():
+            motivation = "Is Trapped"
             # Try and follow our tail to get out
             next_path = self.best_path_to_my_tail()
 
-            # if not next_path:
-            #     next_path = self._get_path_to_my_body_segment_closest_to_tail()
-
+            # Ok, try and find a way to the square closest to our tail
             if not next_path:
-                next_path = self._get_best_path_to_any_tail()
+                next_path = self._get_path_to_body_segment_closest_to_tail([self.context.me])
+
+            # Ok, anyone's closest tail square will do
+            if not next_path:
+                next_path = self._get_path_to_body_segment_closest_to_tail(self.context.enemy_snakes())
 
         # Eat if we're starving
         if self.context.me.health < self.context.dna[STARVING_THRESHOLD]:
+            motivation = "Starving"
             next_path = self.best_path_to_food()
         # Eat if opportunistic or peckish
         elif OPPORTUNISTIC in self.context.traits or self.context.me.health < self.context.dna[PECKISH_THRESHOLD]:
+            motivation = "Opportunistic or Peckish"
             # Are we adjacent to the food?
             # Will eating the food put us in a smaller space?
             if self.best_path_to_food() and len(self.best_path_to_food()[1]) <= 2:
@@ -50,15 +55,18 @@ class Mover(object):
         # Try and get longer
         if not next_path and GLUTTONOUS in self.context.traits and \
                 not self.context.board.is_longest_snake(self.context.me):
+            motivation = "Gluttonous"
             if self.best_path_to_food() and self.pathfinder.path_is_safe(self.best_path_to_food()):
                 next_path = self.best_path_to_food()
 
         # The big snakes eat the little ones
         if not next_path and AGGRESSIVE in self.context.traits:
+            motivation = "Aggressive"
             next_path = self._get_best_attack_path()
 
         # Try and chase tail
         if not next_path and INSECURE in self.context.traits:
+            motivation = "Insecure"
             next_path = self.best_path_to_my_tail()
 
         # Next move is second coord in path (the first coord is our current position)
@@ -66,6 +74,7 @@ class Mover(object):
 
         # Move to the safest adjacent square
         if not next_coord:
+            motivation = "Random"
             next_coord = random.choice(self._get_safest_moves())
 
         # Calculate to the change between our head and the next move
@@ -73,6 +82,9 @@ class Mover(object):
 
         # Look up the name of the direction we're trying to move, or move randomly, if we're going to die
         direction = DIRECTION_MAP[coord_delta] if coord_delta else random.choice(list(DIRECTION_MAP.values()))
+
+        print("%s is moving %s because it is %s (Game %s - Turn %s)" % (self.context.me.name, direction, motivation,
+                                                                        self.context.game_id, self.context.turn))
 
         return direction
 
@@ -90,15 +102,19 @@ class Mover(object):
                                                                                  self.context.me.health)
         return self._best_path_to_my_tail
 
-    def _get_path_to_my_body_segment_closest_to_tail(self):
-        # Try and path to the segment of our body closest to our tail,
-        # as long as we have enough room to get there
-        for index, coord in enumerate(reversed(self.context.me.body)):
-            body_paths = self.pathfinder.get_paths_to_coords(self.context.me.head, get_coord_neighbors(coord))
-            valid_body_paths = [path for path in body_paths if len(path[1]) >= index + 1]
+    def _get_path_to_body_segment_closest_to_tail(self, snakes):
+        # Try and path to the segment of the snake's body closest to the tail,
+        # as long as the tail will be there when we arrive
+        for snake in snakes:
+            for index, coord in enumerate(reversed(snake.body)):
+                body_paths = self.pathfinder.get_paths_to_coords(self.context.me.head, get_coord_neighbors(coord))
+                valid_body_paths = [path for path in body_paths if len(path[1]) >= index + 1]
 
-            # We found a way out! Probably...
-            return min(valid_body_paths, key=lambda x: x[0]) if valid_body_paths else None
+                # We found a way out! Probably...
+                if valid_body_paths:
+                    return min(valid_body_paths, key=lambda x: x[0])
+
+        return None
 
     def _get_best_path_to_any_tail(self):
         # TODO: Should it be closest tail?
@@ -112,18 +128,15 @@ class Mover(object):
                                                        self.context.me.health)
 
     def _get_best_attack_path(self):
-        friendly_snakes = [snake for snake in self.context.board.snakes if snake.name == self.context.me.name]
-        enemy_snake_heads = [snake.head for snake in self.context.board.snakes
-                             if snake not in friendly_snakes]
-        enemy_snake_targets = [neighbor for head in enemy_snake_heads for neighbor in get_coord_neighbors(head)]
+        smaller_snake_heads = [snake.head for snake in self.context.board.snakes
+                               if snake.name != self.context.me.name and snake.length < self.context.me.length]
 
-        return self.pathfinder.get_best_path_to_coords(self.context.me.head,
-                                                       enemy_snake_targets,
-                                                       self.context.me.health)
+        pathfinder_without_fatal_heads = deepcopy(self.pathfinder)
+        pathfinder_without_fatal_heads.remove_fatal_coords(smaller_snake_heads)
 
-        # Subtract one head danger from cost, since we're trying to path adjacent to a head
-        # if best_attack_path and pathfinder.path_is_safe(best_attack_path, me.dna(HEAD_DANGER_COST)):
-        #   next_path = best_attack_path
+        return pathfinder_without_fatal_heads.get_best_path_to_coords(self.context.me.head,
+                                                                      smaller_snake_heads,
+                                                                      self.context.me.health)
 
     def _get_safest_moves(self):
         valid_moves_and_costs = [(self.pathfinder.get_cost(self.context.me.head, coord), coord)

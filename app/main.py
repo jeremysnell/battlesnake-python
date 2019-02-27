@@ -1,4 +1,6 @@
 import os
+import random
+
 import bottle
 
 from app.api import *
@@ -44,7 +46,16 @@ def ping(dna='', traits=''):
 @bottle.post('/<traits>/start')
 @bottle.post('/<dna>/<traits>/start')
 def start(dna='', traits=''):
-    color = "#00FF00"
+    # Company pride
+    s4_colors = {
+        'indigo': '#4E54A4',
+        'green': '#44B5AD',
+        'orange': '#F37970',
+        'purple': '#AA66AA'
+    }
+
+    # Make us pretty!
+    color = random.choice(list(s4_colors.values()))
 
     return start_response(color)
 

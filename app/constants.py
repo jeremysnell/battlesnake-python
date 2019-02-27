@@ -25,7 +25,7 @@ DEFAULT_DNA = [
     30,     # PECKISH_THRESHOLD
     15,     # STARVING_THRESHOLD
     20,     # MAX_OPPORTUNISTIC_EAT_COST
-    10      # FOOD_COST
+    0       # FOOD_COST
 ]
 
 # DNA indexes
