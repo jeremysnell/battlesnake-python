@@ -1,8 +1,8 @@
+# TODO: Make snake head predictions for next turn? Could we be trapped? Untrapped?
+    #TODO: Cut off snakes, if nearby and aggressive
+
 # TODO: Food costs less to move through?
 # TODO: When trapped, take the longest path towards the square closest to the tail of a snake
-
-# TODO: **** Make snake head predictions for next turn? Could we be trapped? Untrapped?
-    #TODO: Cut off snakes, if nearby and aggressive
 
 # TODO: Go after food we're closer to than any other snake first
 # TODO: Be aware of a move that puts you far away from food when you're peckish
@@ -15,5 +15,4 @@
 # TODO: Should being next to yourself always cost less?
 # TODO: Direction we're moving along body, away/to head?
 
-# TODO: Better logging, with turn
 # TODO: Add trait ordering? (agg-glu is diff than glu-agg)
